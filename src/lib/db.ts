@@ -97,12 +97,19 @@ function ensureColumn(
 function ensureAdmin(db: Database.Database) {
   const username = process.env.ADMIN_USERNAME || "admin";
   const password = "Tracy@1"; // TEMPORARILY HARDCODED - will work regardless of env vars
+  
+  console.log(`[DB DEBUG] ensureAdmin called for username: ${username}, password: ${password}`);
 
   const existing = db
-    .prepare("SELECT id FROM users WHERE username = ?")
-    .get(username) as { id: number } | undefined;
+    .prepare("SELECT id, password_hash FROM users WHERE username = ?")
+    .get(username) as { id: number; password_hash: string } | undefined;
+    
+  console.log(`[DB DEBUG] Existing user found:`, !!existing);
+  
   if (!existing) {
+    console.log(`[DB DEBUG] Creating new admin user...`);
     const hash = bcrypt.hashSync(password, 10);
+    console.log(`[DB DEBUG] Hashed password length: ${hash.length}`);
     db.prepare("INSERT INTO users (username, password_hash) VALUES (?, ?)").run(
       username,
       hash,
@@ -110,12 +117,18 @@ function ensureAdmin(db: Database.Database) {
     // eslint-disable-next-line no-console
     console.log(`[db] Seeded admin user "${username}".`);
   } else {
+    console.log(`[DB DEBUG] Updating existing admin user password...`);
     const hash = bcrypt.hashSync(password, 10);
+    console.log(`[DB DEBUG] New hash length: ${hash.length}`);
     db.prepare("UPDATE users SET password_hash = ? WHERE username = ?").run(
       hash,
       username,
     );
     // eslint-disable-next-line no-console
     console.log(`[db] Updated admin password for "${username}".`);
+    
+    // Verify the update worked
+    const verify = db.prepare("SELECT password_hash FROM users WHERE username = ?").get(username) as { password_hash: string };
+    console.log(`[DB DEBUG] Verification - stored hash starts with: ${verify.password_hash.substring(0, 10)}...`);
   }
 }

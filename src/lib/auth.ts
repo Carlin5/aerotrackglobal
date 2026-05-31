@@ -27,15 +27,27 @@ export async function verifyCredentials(
   username: string,
   password: string,
 ): Promise<SessionPayload | null> {
+  console.log("[AUTH DEBUG] verifyCredentials called for:", username);
   const db = getDb();
+  console.log("[AUTH DEBUG] Got database connection");
   const row = db
     .prepare("SELECT id, username, password_hash FROM users WHERE username = ?")
     .get(username) as
     | { id: number; username: string; password_hash: string }
     | undefined;
-  if (!row) return null;
+  console.log("[AUTH DEBUG] User found in DB:", !!row);
+  if (!row) {
+    console.log("[AUTH DEBUG] User not found in database");
+    return null;
+  }
+  console.log("[AUTH DEBUG] Comparing password with stored hash");
   const ok = bcrypt.compareSync(password, row.password_hash);
-  if (!ok) return null;
+  console.log("[AUTH DEBUG] Password comparison result:", ok);
+  if (!ok) {
+    console.log("[AUTH DEBUG] Password comparison failed");
+    return null;
+  }
+  console.log("[AUTH DEBUG] Authentication successful for user ID:", row.id);
   return { sub: row.username, uid: row.id };
 }
 
