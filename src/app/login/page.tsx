@@ -5,7 +5,7 @@ import { LoginForm } from "./LoginForm";
 import { Panel } from "@/components/ui/Panel";
 import { AmbientBackground } from "@/components/shared/AmbientBackground";
 import { ShieldCheck } from "lucide-react";
-import { getSession } from "@/lib/auth";
+import { getSimpleSession } from "@/lib/simple-auth";
 import { IMG } from "@/lib/images";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +15,7 @@ export default async function LoginPage({
 }: {
   searchParams: { next?: string };
 }) {
-  const session = await getSession();
+  const session = await getSimpleSession();
   if (session) redirect(searchParams.next || "/admin");
 
   return (
