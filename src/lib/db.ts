@@ -93,7 +93,12 @@ function ensureColumn(
 
 function ensureAdmin(db: Database.Database) {
   const username = process.env.ADMIN_USERNAME || "admin";
-  const password = "Tracy@1"; // hardcoded admin password
+  const password = process.env.ADMIN_PASSWORD;
+  if (!password) {
+    // eslint-disable-next-line no-console
+    console.log(`[db] ADMIN_PASSWORD not set — skipping admin seed.`);
+    return;
+  }
 
   const existing = db
     .prepare("SELECT id FROM users WHERE username = ?")

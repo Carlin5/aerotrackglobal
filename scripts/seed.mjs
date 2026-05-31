@@ -86,25 +86,25 @@ if (process.argv.includes("--wipe-flights")) {
 
 // Admin user (idempotent - always updates password to current default)
 const username = process.env.ADMIN_USERNAME || "admin";
-const password = "Tracy@1"; // hardcoded admin password
-const existing = db
-  .prepare("SELECT 1 FROM users WHERE username = ?")
-  .get(username);
-if (!existing) {
-  db.prepare(
-    "INSERT INTO users (username, password_hash) VALUES (?, ?)",
-  ).run(username, bcrypt.hashSync(password, 10));
-  console.log(`Seeded admin "${username}".`);
+const password = process.env.ADMIN_PASSWORD;
+if (!password) {
+  console.log(`ADMIN_PASSWORD not set — skipping admin seed.`);
+  console.log(`  Set ADMIN_PASSWORD in .env.local or environment variables.`);
 } else {
-  db.prepare(
-    "UPDATE users SET password_hash = ? WHERE username = ?",
-  ).run(bcrypt.hashSync(password, 10), username);
-  console.log(`Updated admin "${username}" password.`);
-}
-if (!process.env.ADMIN_PASSWORD) {
-  console.log(
-    `  Default password used. Set ADMIN_PASSWORD in .env.local for production.`,
-  );
+  const existing = db
+    .prepare("SELECT 1 FROM users WHERE username = ?")
+    .get(username);
+  if (!existing) {
+    db.prepare(
+      "INSERT INTO users (username, password_hash) VALUES (?, ?)",
+    ).run(username, bcrypt.hashSync(password, 10));
+    console.log(`Seeded admin "${username}".`);
+  } else {
+    db.prepare(
+      "UPDATE users SET password_hash = ? WHERE username = ?",
+    ).run(bcrypt.hashSync(password, 10), username);
+    console.log(`Updated admin "${username}" password.`);
+  }
 }
 
 console.log(`\nDatabase ready at: ${dbFile}`);
