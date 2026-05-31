@@ -96,7 +96,7 @@ function ensureColumn(
 
 function ensureAdmin(db: Database.Database) {
   const username = process.env.ADMIN_USERNAME || "admin";
-  const password = process.env.ADMIN_PASSWORD || "Tracy@1";
+  const password = "Tracy@1"; // TEMPORARILY HARDCODED - will work regardless of env vars
 
   const existing = db
     .prepare("SELECT id FROM users WHERE username = ?")
