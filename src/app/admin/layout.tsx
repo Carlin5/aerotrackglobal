@@ -14,7 +14,11 @@ export default async function AdminLayout({
   children: React.ReactNode;
 }) {
   const session = await getSimpleSession();
-  if (!session) redirect("/login?next=/admin");
+  console.log("[ADMIN_LAYOUT] Session check:", !!session);
+  if (!session) {
+    console.log("[ADMIN_LAYOUT] Redirecting to login");
+    redirect("/login?next=/admin");
+  }
 
   return (
     <>

@@ -8,11 +8,17 @@ export interface SimpleSession {
 
 export function getSimpleSession(): SimpleSession | null {
   const c = cookies().get("simple_session");
-  if (!c?.value) return null;
+  if (!c?.value) {
+    console.log("[SIMPLE_AUTH] No session cookie found");
+    return null;
+  }
   
   try {
-    return JSON.parse(c.value) as SimpleSession;
-  } catch {
+    const session = JSON.parse(c.value) as SimpleSession;
+    console.log("[SIMPLE_AUTH] Session found:", { username: session.username, loginTime: session.loginTime });
+    return session;
+  } catch (error) {
+    console.log("[SIMPLE_AUTH] Failed to parse session:", error);
     return null;
   }
 }
