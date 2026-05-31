@@ -1,0 +1,8 @@
+{
+  "buildCommand": "echo '=== BUILD CHECK ===' && echo 'ADMIN_PASSWORD set: ${ADMIN_PASSWORD:+YES}' && echo 'AUTH_SECRET set: ${AUTH_SECRET:+YES}' && npm run build",
+  "functions": {
+    "src/app/api/**/*.ts": {
+      "maxDuration": 30
+    }
+  }
+}
