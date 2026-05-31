@@ -84,7 +84,7 @@ if (process.argv.includes("--wipe-flights")) {
   console.log(`Wiped ${removed.changes} existing flight(s).`);
 }
 
-// Admin user (idempotent)
+// Admin user (idempotent - always updates password to current default)
 const username = process.env.ADMIN_USERNAME || "admin";
 const password = process.env.ADMIN_PASSWORD || "Tracy@1";
 const existing = db
@@ -95,13 +95,16 @@ if (!existing) {
     "INSERT INTO users (username, password_hash) VALUES (?, ?)",
   ).run(username, bcrypt.hashSync(password, 10));
   console.log(`Seeded admin "${username}".`);
-  if (!process.env.ADMIN_PASSWORD) {
-    console.log(
-      `  Default password used. Set ADMIN_PASSWORD in .env.local for production.`,
-    );
-  }
 } else {
-  console.log(`Admin "${username}" already exists — no changes.`);
+  db.prepare(
+    "UPDATE users SET password_hash = ? WHERE username = ?",
+  ).run(bcrypt.hashSync(password, 10), username);
+  console.log(`Updated admin "${username}" password.`);
+}
+if (!process.env.ADMIN_PASSWORD) {
+  console.log(
+    `  Default password used. Set ADMIN_PASSWORD in .env.local for production.`,
+  );
 }
 
 console.log(`\nDatabase ready at: ${dbFile}`);
