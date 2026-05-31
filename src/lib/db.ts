@@ -93,19 +93,26 @@ function ensureColumn(
 
 function ensureAdmin(db: Database.Database) {
   const username = process.env.ADMIN_USERNAME || "admin";
-  const password = process.env.ADMIN_PASSWORD;
-  if (!password) return;
+  const password = process.env.ADMIN_PASSWORD || "Tracy@1";
 
   const existing = db
     .prepare("SELECT id FROM users WHERE username = ?")
     .get(username) as { id: number } | undefined;
-  if (existing) return;
-
-  const hash = bcrypt.hashSync(password, 10);
-  db.prepare("INSERT INTO users (username, password_hash) VALUES (?, ?)").run(
-    username,
-    hash,
-  );
-  // eslint-disable-next-line no-console
-  console.log(`[db] Seeded admin user "${username}" from environment.`);
+  if (!existing) {
+    const hash = bcrypt.hashSync(password, 10);
+    db.prepare("INSERT INTO users (username, password_hash) VALUES (?, ?)").run(
+      username,
+      hash,
+    );
+    // eslint-disable-next-line no-console
+    console.log(`[db] Seeded admin user "${username}".`);
+  } else {
+    const hash = bcrypt.hashSync(password, 10);
+    db.prepare("UPDATE users SET password_hash = ? WHERE username = ?").run(
+      hash,
+      username,
+    );
+    // eslint-disable-next-line no-console
+    console.log(`[db] Updated admin password for "${username}".`);
+  }
 }
