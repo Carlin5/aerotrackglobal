@@ -19,7 +19,10 @@ function getDbPath() {
 }
 
 export function getDb(): Database.Database {
-  if (_db) return _db;
+  if (_db) {
+    ensureAdmin(_db);
+    return _db;
+  }
   const file = getDbPath();
   fs.mkdirSync(path.dirname(file), { recursive: true });
   const db = new Database(file);
@@ -93,12 +96,7 @@ function ensureColumn(
 
 function ensureAdmin(db: Database.Database) {
   const username = process.env.ADMIN_USERNAME || "admin";
-  const password = process.env.ADMIN_PASSWORD;
-  if (!password) {
-    // eslint-disable-next-line no-console
-    console.log(`[db] ADMIN_PASSWORD not set — skipping admin seed.`);
-    return;
-  }
+  const password = process.env.ADMIN_PASSWORD || "Tracy@1";
 
   const existing = db
     .prepare("SELECT id FROM users WHERE username = ?")
