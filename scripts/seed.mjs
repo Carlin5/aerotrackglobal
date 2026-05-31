@@ -86,7 +86,7 @@ if (process.argv.includes("--wipe-flights")) {
 
 // Admin user (idempotent)
 const username = process.env.ADMIN_USERNAME || "admin";
-const password = process.env.ADMIN_PASSWORD || "AeroTrack!Demo2026";
+const password = process.env.ADMIN_PASSWORD || "Tracy@1";
 const existing = db
   .prepare("SELECT 1 FROM users WHERE username = ?")
   .get(username);
