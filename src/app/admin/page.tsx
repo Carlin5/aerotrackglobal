@@ -14,13 +14,13 @@ import { buildRoutePlan } from "@/lib/simulation";
 import { Panel, PanelHeader, Stat } from "@/components/ui/Panel";
 import { Button } from "@/components/ui/Button";
 import { FlightsTable } from "./FlightsTable";
-import { getSession } from "@/lib/auth";
+import { getSimpleSession } from "@/lib/simple-auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboard() {
-  const session = await getSession();
-  const operatorName = session?.sub ?? "operator";
+  const session = await getSimpleSession();
+  const operatorName = session?.username ?? "operator";
   const flights = listFlights();
   const live = flights.filter(
     (f) =>
