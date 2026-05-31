@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
-import { Input, Field } from "@/components/ui/Input";
+import { Input, PasswordInput, Field } from "@/components/ui/Input";
 import { LogIn } from "lucide-react";
 
 export function LoginForm({ nextUrl }: { nextUrl?: string }) {
@@ -49,9 +49,8 @@ export function LoginForm({ nextUrl }: { nextUrl?: string }) {
         />
       </Field>
       <Field label="Password" htmlFor="p">
-        <Input
+        <PasswordInput
           id="p"
-          type="password"
           autoComplete="current-password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}

@@ -1,6 +1,7 @@
 "use client";
 import * as React from "react";
 import { cn } from "@/lib/utils";
+import { Eye, EyeOff } from "lucide-react";
 
 export const Input = React.forwardRef<
   HTMLInputElement,
@@ -19,6 +20,43 @@ export const Input = React.forwardRef<
   />
 ));
 Input.displayName = "Input";
+
+export const PasswordInput = React.forwardRef<
+  HTMLInputElement,
+  React.InputHTMLAttributes<HTMLInputElement>
+>(({ className, ...props }, ref) => {
+  const [showPassword, setShowPassword] = React.useState(false);
+  
+  return (
+    <div className="relative">
+      <input
+        ref={ref}
+        type={showPassword ? "text" : "password"}
+        className={cn(
+          "h-10 w-full rounded-lg border border-line bg-bg-1/70 px-3 pr-10 text-sm text-ink-0 placeholder:text-ink-3",
+          "outline-none transition-colors duration-200",
+          "focus:border-cyan-500/60 focus:bg-bg-1 focus:ring-2 focus:ring-cyan-500/20",
+          "disabled:opacity-60",
+          className,
+        )}
+        {...props}
+      />
+      <button
+        type="button"
+        onClick={() => setShowPassword(!showPassword)}
+        className="absolute right-2 top-1/2 -translate-y-1/2 text-ink-3 hover:text-ink-1 transition-colors"
+        tabIndex={-1}
+      >
+        {showPassword ? (
+          <EyeOff className="h-4 w-4" />
+        ) : (
+          <Eye className="h-4 w-4" />
+        )}
+      </button>
+    </div>
+  );
+});
+PasswordInput.displayName = "PasswordInput";
 
 export const Textarea = React.forwardRef<
   HTMLTextAreaElement,
