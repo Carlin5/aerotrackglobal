@@ -1,0 +1,102 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url("https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap");
+
+:root {
+  --font-sans: "Fira Sans", system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "Fira Code", ui-monospace, SFMono-Regular, Menlo, Monaco,
+    Consolas, monospace;
+}
+
+html,
+body {
+  background:
+    radial-gradient(1200px 600px at 80% -10%, rgba(0, 212, 255, 0.10), transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, rgba(249, 115, 22, 0.08), transparent 60%),
+    #03060B;
+  color: #F4F7FB;
+  font-family: var(--font-sans);
+  min-height: 100vh;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+::selection {
+  background: rgba(0, 212, 255, 0.25);
+  color: #F4F7FB;
+}
+
+.grid-bg {
+  background-image: linear-gradient(
+      rgba(140, 180, 230, 0.06) 1px,
+      transparent 1px
+    ),
+    linear-gradient(90deg, rgba(140, 180, 230, 0.06) 1px, transparent 1px);
+  background-size: 32px 32px;
+  background-position: -1px -1px;
+}
+
+.panel {
+  background: linear-gradient(
+    180deg,
+    rgba(15, 24, 40, 0.65) 0%,
+    rgba(11, 18, 31, 0.65) 100%
+  );
+  border: 1px solid rgba(140, 180, 230, 0.12);
+  border-radius: 14px;
+  backdrop-filter: blur(14px) saturate(120%);
+  -webkit-backdrop-filter: blur(14px) saturate(120%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 8px 30px rgba(0, 0, 0, 0.45);
+}
+
+.panel-strong {
+  border-color: rgba(0, 212, 255, 0.25);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 0 1px rgba(0, 212, 255, 0.15),
+    0 12px 40px rgba(0, 0, 0, 0.5);
+}
+
+.hud-line {
+  background-image: repeating-linear-gradient(
+    90deg,
+    rgba(0, 212, 255, 0.35) 0,
+    rgba(0, 212, 255, 0.35) 4px,
+    transparent 4px,
+    transparent 10px
+  );
+  height: 1px;
+}
+
+.leaflet-container {
+  background: #03060B !important;
+  font-family: var(--font-sans) !important;
+}
+
+.leaflet-control-zoom a {
+  background: rgba(11, 18, 31, 0.9) !important;
+  color: #C8D3E3 !important;
+  border: 1px solid rgba(140, 180, 230, 0.15) !important;
+}
+
+.plane-marker {
+  filter: drop-shadow(0 0 6px rgba(0, 212, 255, 0.65));
+  transition: transform 1s linear;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
