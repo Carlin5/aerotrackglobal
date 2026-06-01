@@ -7,7 +7,7 @@ import {
 import { getSimpleSession } from "@/lib/simple-auth";
 
 export async function GET() {
-  const session = getSimpleSession();
+  const session = await getSimpleSession();
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -16,11 +16,11 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const session = getSimpleSession();
+  const session = await getSimpleSession();
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  
+
   const json = await req.json().catch(() => null);
   const parsed = FlightInputSchema.safeParse(json);
   if (!parsed.success) {

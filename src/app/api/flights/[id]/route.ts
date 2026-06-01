@@ -7,14 +7,31 @@ import {
   setStatus,
   updateFlight,
 } from "@/lib/flights";
+import { getSimpleSession } from "@/lib/simple-auth";
 import type { FlightStatus } from "@/types";
+
+async function requireAuth() {
+  const session = await getSimpleSession();
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  return null;
+}
+
+function parseId(raw: string) {
+  const id = Number(raw);
+  if (!Number.isFinite(id)) return null;
+  return id;
+}
 
 export async function GET(
   _req: Request,
   { params }: { params: { id: string } },
 ) {
-  const id = Number(params.id);
-  if (!Number.isFinite(id))
+  const unauth = await requireAuth();
+  if (unauth) return unauth;
+  const id = parseId(params.id);
+  if (id == null)
     return NextResponse.json({ error: "Bad id" }, { status: 400 });
   const flight = getFlightById(id);
   if (!flight)
@@ -26,8 +43,10 @@ export async function PUT(
   req: Request,
   { params }: { params: { id: string } },
 ) {
-  const id = Number(params.id);
-  if (!Number.isFinite(id))
+  const unauth = await requireAuth();
+  if (unauth) return unauth;
+  const id = parseId(params.id);
+  if (id == null)
     return NextResponse.json({ error: "Bad id" }, { status: 400 });
   const json = await req.json().catch(() => null);
   const parsed = FlightInputSchema.safeParse(json);
@@ -45,8 +64,10 @@ export async function PATCH(
   req: Request,
   { params }: { params: { id: string } },
 ) {
-  const id = Number(params.id);
-  if (!Number.isFinite(id))
+  const unauth = await requireAuth();
+  if (unauth) return unauth;
+  const id = parseId(params.id);
+  if (id == null)
     return NextResponse.json({ error: "Bad id" }, { status: 400 });
   const body = (await req.json().catch(() => null)) as
     | { isLive?: boolean; status?: FlightStatus }
@@ -67,8 +88,10 @@ export async function DELETE(
   _req: Request,
   { params }: { params: { id: string } },
 ) {
-  const id = Number(params.id);
-  if (!Number.isFinite(id))
+  const unauth = await requireAuth();
+  if (unauth) return unauth;
+  const id = parseId(params.id);
+  if (id == null)
     return NextResponse.json({ error: "Bad id" }, { status: 400 });
   deleteFlight(id);
   return NextResponse.json({ ok: true });

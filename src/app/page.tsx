@@ -21,7 +21,7 @@ import {
   Headphones,
 } from "lucide-react";
 import Link from "next/link";
-import { getSession } from "@/lib/auth";
+import { getSimpleSession } from "@/lib/simple-auth";
 import { ContactForm } from "@/components/marketing/ContactForm";
 import { CountUpStat } from "@/components/marketing/CountUpStat";
 import { Reveal } from "@/components/marketing/Reveal";
@@ -36,7 +36,7 @@ const HANGAR_IMAGE =
   "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=1600&q=80";
 
 export default async function HomePage() {
-  const session = await getSession();
+  const session = await getSimpleSession();
   return (
     <>
       <TopNav authed={!!session} />

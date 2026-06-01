@@ -1,4 +1,4 @@
-// Initialize the SQLite database and ensure the admin operator account exists.
+// Initialize the SQLite database used by AeroTrack.
 // Production-safe: NO demo / fake flights are inserted. Operators add real
 // flights via the /admin console after sign-in.
 //
@@ -6,12 +6,14 @@
 //
 // Pass --wipe-flights to clear any pre-existing flights (use this on a fresh
 // install if a previous seed populated demo data).
+//
+// Admin credentials are not stored in the database; they come from the
+// `ADMIN_USERNAME` / `ADMIN_PASSWORD` environment variables at sign-in time.
 
 import path from "node:path";
 import fs from "node:fs";
 import url from "node:url";
 import Database from "better-sqlite3";
-import bcrypt from "bcryptjs";
 
 const ROOT = path.dirname(url.fileURLToPath(import.meta.url));
 const PROJECT = path.resolve(ROOT, "..");
@@ -35,12 +37,6 @@ fs.mkdirSync(path.dirname(dbFile), { recursive: true });
 const db = new Database(dbFile);
 db.pragma("journal_mode = WAL");
 db.exec(`
-  CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT NOT NULL UNIQUE,
-    password_hash TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-  );
   CREATE TABLE IF NOT EXISTS flights (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     tracking_id TEXT NOT NULL UNIQUE,
@@ -84,28 +80,8 @@ if (process.argv.includes("--wipe-flights")) {
   console.log(`Wiped ${removed.changes} existing flight(s).`);
 }
 
-// Admin user (idempotent - always updates password to current default)
-const username = process.env.ADMIN_USERNAME || "admin";
-const password = process.env.ADMIN_PASSWORD;
-if (!password) {
-  console.log(`ADMIN_PASSWORD not set — skipping admin seed.`);
-  console.log(`  Set ADMIN_PASSWORD in .env.local or environment variables.`);
-} else {
-  const existing = db
-    .prepare("SELECT 1 FROM users WHERE username = ?")
-    .get(username);
-  if (!existing) {
-    db.prepare(
-      "INSERT INTO users (username, password_hash) VALUES (?, ?)",
-    ).run(username, bcrypt.hashSync(password, 10));
-    console.log(`Seeded admin "${username}".`);
-  } else {
-    db.prepare(
-      "UPDATE users SET password_hash = ? WHERE username = ?",
-    ).run(bcrypt.hashSync(password, 10), username);
-    console.log(`Updated admin "${username}" password.`);
-  }
-}
-
-console.log(`\nDatabase ready at: ${dbFile}`);
+console.log(`Database ready at: ${dbFile}`);
 console.log(`Sign in at:        /login`);
+console.log(
+  "Credentials:       $ADMIN_USERNAME / $ADMIN_PASSWORD (env vars).",
+);
