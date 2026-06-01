@@ -14,7 +14,7 @@ import {
   Mail,
   Plane,
 } from "lucide-react";
-import { getSession } from "@/lib/auth";
+import { getSimpleSession } from "@/lib/simple-auth";
 import { IMG } from "@/lib/images";
 import type { TrackSnapshot } from "@/components/tracking/useLiveTracking";
 
@@ -42,7 +42,7 @@ export default async function TrackPage({
 }: {
   params: { trackingId: string };
 }) {
-  const session = await getSession();
+  const session = await getSimpleSession();
   const snap = await fetchSnapshot(params.trackingId);
 
   if (!snap) {
