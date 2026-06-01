@@ -86,9 +86,142 @@ body {
   border: 1px solid rgba(140, 180, 230, 0.15) !important;
 }
 
+/* ---------- 2D map: aircraft marker + pulse halos ---------- */
 .plane-marker {
-  filter: drop-shadow(0 0 6px rgba(0, 212, 255, 0.65));
+  position: relative;
+  width: 36px;
+  height: 36px;
+}
+.plane-marker .pulse {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 36px;
+  height: 36px;
+  border-radius: 9999px;
+  border: 1px solid rgba(34, 211, 238, 0.55);
+  animation: plane-pulse 2.6s cubic-bezier(0, 0, 0.2, 1) infinite;
+  pointer-events: none;
+}
+.plane-marker .pulse.pulse-2 {
+  animation-delay: 1.3s;
+}
+.plane-marker .pulse.emergency {
+  border-color: rgba(255, 82, 82, 0.7);
+  animation-duration: 1.4s;
+}
+.plane-marker .body {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   transition: transform 1s linear;
+  filter: drop-shadow(0 0 6px rgba(0, 212, 255, 0.7))
+    drop-shadow(0 0 2px rgba(255, 255, 255, 0.35));
+}
+.plane-marker .body.emergency {
+  filter: drop-shadow(0 0 8px rgba(255, 82, 82, 0.85))
+    drop-shadow(0 0 2px rgba(255, 255, 255, 0.35));
+}
+@keyframes plane-pulse {
+  0% {
+    transform: scale(0.55);
+    opacity: 0.95;
+  }
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+.airport-icon .ring {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 22px;
+  height: 22px;
+  border-radius: 9999px;
+  border: 1px solid currentColor;
+  opacity: 0.35;
+  animation: airport-pulse 2.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+  pointer-events: none;
+}
+@keyframes airport-pulse {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+
+/* Leaflet tooltip — HUD style */
+.leaflet-tooltip {
+  background: rgba(7, 12, 22, 0.92) !important;
+  border: 1px solid rgba(34, 211, 238, 0.35) !important;
+  color: #f4f7fb !important;
+  font-family: var(--font-mono) !important;
+  font-size: 11px !important;
+  padding: 4px 8px !important;
+  border-radius: 6px !important;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.55) !important;
+}
+.leaflet-tooltip-top:before,
+.leaflet-tooltip-bottom:before,
+.leaflet-tooltip-left:before,
+.leaflet-tooltip-right:before {
+  border-top-color: rgba(34, 211, 238, 0.35) !important;
+}
+.leaflet-control-attribution {
+  background: rgba(7, 12, 22, 0.7) !important;
+  color: rgba(140, 180, 230, 0.6) !important;
+  font-size: 10px !important;
+}
+
+/* HUD corner reticle for map / globe containers */
+.hud-reticle::before,
+.hud-reticle::after {
+  content: "";
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border: 1px solid rgba(34, 211, 238, 0.55);
+  pointer-events: none;
+}
+.hud-reticle::before {
+  top: 8px;
+  left: 8px;
+  border-right: 0;
+  border-bottom: 0;
+}
+.hud-reticle::after {
+  bottom: 8px;
+  right: 8px;
+  border-left: 0;
+  border-top: 0;
+}
+.hud-reticle > .hud-reticle-tr,
+.hud-reticle > .hud-reticle-bl {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border: 1px solid rgba(34, 211, 238, 0.55);
+  pointer-events: none;
+}
+.hud-reticle > .hud-reticle-tr {
+  top: 8px;
+  right: 8px;
+  border-left: 0;
+  border-bottom: 0;
+}
+.hud-reticle > .hud-reticle-bl {
+  bottom: 8px;
+  left: 8px;
+  border-right: 0;
+  border-top: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {
