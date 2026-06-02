@@ -168,8 +168,8 @@ export function FlightForm({
         },
       );
       if (!res.ok) {
-        const j = (await res.json().catch(() => ({}))) as { error?: string };
-        setError(j.error || `Save failed (${res.status})`);
+        const j = (await res.json().catch(() => ({}))) as { error?: string; detail?: string };
+        setError(j.detail || j.error || `Save failed (${res.status})`);
         setBusy(false);
         return;
       }
