@@ -131,7 +131,14 @@ export async function listFlights(): Promise<FlightRecord[]> {
       .select('*')
       .order('departure_at', { ascending: false });
 
-    if (error) throw error;
+    if (error) {
+      // Table doesn't exist yet — return empty list so page doesn't crash
+      if (error.code === 'PGRST205' || error.message?.includes("Could not find the table")) {
+        console.warn('[flights] flights table not found in Supabase. Run scripts/supabase-setup.sql');
+        return [];
+      }
+      throw error;
+    }
     return (data as FlightRow[]).map(rowToFlight);
   } catch (err) {
     console.error('[flights] listFlights failed:', err);
@@ -220,7 +227,14 @@ export async function createFlight(
     console.log('[flights] insert result - error:', error ? error.message : 'none');
     console.log('[flights] insert result - data:', data ? 'has data' : 'no data');
 
-    if (error) throw error;
+    if (error) {
+      if (error.code === 'PGRST205' || error.message?.includes("Could not find the table")) {
+        throw new Error(
+          'The flights table does not exist in Supabase. Please run the setup SQL in scripts/supabase-setup.sql',
+        );
+      }
+      throw error;
+    }
     if (!data) throw new Error('Failed to create flight');
 
     return rowToFlight(data as FlightRow);

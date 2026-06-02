@@ -8,6 +8,7 @@ import {
   Radio,
   ShieldCheck,
   Pencil,
+  Database,
 } from "lucide-react";
 import { listFlights } from "@/lib/flights";
 import { buildRoutePlan } from "@/lib/simulation";
@@ -21,7 +22,18 @@ export const dynamic = "force-dynamic";
 export default async function AdminDashboard() {
   const session = await getSimpleSession();
   const operatorName = session?.username ?? "operator";
-  const flights = await listFlights();
+  let flights: Awaited<ReturnType<typeof listFlights>> = [];
+  let tableMissing = false;
+  try {
+    flights = await listFlights();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes("does not exist in Supabase")) {
+      tableMissing = true;
+    } else {
+      throw err;
+    }
+  }
   const live = flights.filter(
     (f) =>
       f.isLive &&
@@ -59,6 +71,31 @@ export default async function AdminDashboard() {
           </Button>
         </Link>
       </div>
+
+      {tableMissing && (
+        <div className="rounded-lg border border-signal-red/30 bg-signal-red/10 p-4 text-sm text-signal-red">
+          <div className="flex items-start gap-3">
+            <Database className="mt-0.5 h-4 w-4 shrink-0" />
+            <div>
+              <p className="font-semibold">Supabase table missing</p>
+              <p className="mt-1">
+                The <code>flights</code> table does not exist in your Supabase
+                project. Run the SQL setup script to create it:
+              </p>
+              <ol className="mt-2 ml-4 list-decimal space-y-1">
+                <li>
+                  Open your Supabase project → SQL Editor → New query
+                </li>
+                <li>
+                  Copy the contents of{" "}
+                  <code>scripts/supabase-setup.sql</code> and run it
+                </li>
+                <li>Refresh this page</li>
+              </ol>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Operator capability strip */}
       <Panel className="!p-4">
