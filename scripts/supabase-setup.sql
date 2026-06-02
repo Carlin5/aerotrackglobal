@@ -2,7 +2,7 @@
 -- Run this in your Supabase project's SQL Editor (https://app.supabase.com/project/_/sql)
 
 -- Enable UUID extension (if not already enabled)
-extension if not exists "uuid-ossp";
+create extension if not exists "uuid-ossp";
 
 -- Flights table (persistent storage for weeks/months)
 create table if not exists flights (
@@ -57,7 +57,9 @@ begin
 end;
 $$ language plpgsql;
 
-create trigger if not exists update_flights_updated_at
+-- Drop existing trigger if present, then recreate
+drop trigger if exists update_flights_updated_at on flights;
+create trigger update_flights_updated_at
   before update on flights
   for each row
   execute function update_updated_at_column();
