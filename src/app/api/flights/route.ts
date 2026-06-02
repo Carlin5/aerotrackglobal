@@ -12,9 +12,17 @@ export async function GET() {
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  await ensureDbReady();
-  const flights = listFlights();
-  return NextResponse.json({ flights });
+  try {
+    await ensureDbReady();
+    const flights = listFlights();
+    return NextResponse.json({ flights });
+  } catch (err) {
+    console.error("[api/flights] GET failed:", err);
+    return NextResponse.json(
+      { error: "Database error", detail: err instanceof Error ? err.message : "Unknown error" },
+      { status: 500 },
+    );
+  }
 }
 
 export async function POST(req: Request) {
@@ -23,16 +31,27 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const json = await req.json().catch(() => null);
-  const parsed = FlightInputSchema.safeParse(json);
-  if (!parsed.success) {
+  try {
+    const json = await req.json().catch(() => null);
+    const parsed = FlightInputSchema.safeParse(json);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Invalid input", issues: parsed.error.issues },
+        { status: 400 },
+      );
+    }
+    
+    await ensureDbReady();
+    const flight = createFlight(parsed.data);
+    // Persist immediately after creation
+    await persistDb();
+    
+    return NextResponse.json({ flight }, { status: 201 });
+  } catch (err) {
+    console.error("[api/flights] POST failed:", err);
     return NextResponse.json(
-      { error: "Invalid input", issues: parsed.error.issues },
-      { status: 400 },
+      { error: "Failed to create flight", detail: err instanceof Error ? err.message : "Unknown error" },
+      { status: 500 },
     );
   }
-  await ensureDbReady();
-  const flight = createFlight(parsed.data);
-  await persistDb();
-  return NextResponse.json({ flight }, { status: 201 });
 }
