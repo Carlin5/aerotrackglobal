@@ -1,6 +1,6 @@
-import "server-only";
-import { z } from "zod";
-import { getDb } from "./db";
+import 'server-only';
+import { z } from 'zod';
+import { db } from './db';
 import type {
   Cargo,
   EmergencySnapshot,
@@ -8,9 +8,9 @@ import type {
   FlightStatus,
   Party,
   Waypoint,
-} from "@/types";
-import { generateFlightNumber, generateTrackingId } from "./tracking-id";
-import { buildRoutePlan, computeLivePosition } from "./simulation";
+} from '@/types';
+import { generateFlightNumber, generateTrackingId } from './tracking-id';
+import { buildRoutePlan, computeLivePosition } from './simulation';
 
 interface FlightRow {
   id: number;
@@ -23,7 +23,7 @@ interface FlightRow {
   cruise_kmh: number;
   departure_at: string;
   status: FlightStatus;
-  is_live: number;
+  is_live: boolean;
   cargo_json: string;
   shipper_json: string;
   consignee_json: string;
@@ -45,7 +45,7 @@ function rowToFlight(r: FlightRow): FlightRecord {
     cruiseKmh: r.cruise_kmh,
     departureAt: r.departure_at,
     status: r.status,
-    isLive: !!r.is_live,
+    isLive: r.is_live,
     cargo: JSON.parse(r.cargo_json) as Cargo,
     shipper: JSON.parse(r.shipper_json) as Party,
     consignee: JSON.parse(r.consignee_json) as Party,
@@ -60,7 +60,7 @@ function rowToFlight(r: FlightRow): FlightRecord {
 
 export const FlightInputSchema = z.object({
   flightNumber: z.string().min(2).max(16).optional(),
-  aircraft: z.string().min(2).max(80).default("Boeing 747-8F"),
+  aircraft: z.string().min(2).max(80).default('Boeing 747-8F'),
   originCode: z.string().length(3),
   destinationCode: z.string().length(3),
   waypoints: z
@@ -75,16 +75,16 @@ export const FlightInputSchema = z.object({
   departureAt: z.string().min(8), // ISO 8601
   status: z
     .enum([
-      "scheduled",
-      "boarding",
-      "in_flight",
-      "landed",
-      "delivered",
-      "delayed",
-      "cancelled",
-      "emergency_stop",
+      'scheduled',
+      'boarding',
+      'in_flight',
+      'landed',
+      'delivered',
+      'delayed',
+      'cancelled',
+      'emergency_stop',
     ])
-    .default("scheduled"),
+    .default('scheduled'),
   isLive: z.coerce.boolean().default(false),
   cargo: z.object({
     description: z.string().min(2).max(280),
@@ -99,14 +99,24 @@ export const FlightInputSchema = z.object({
   shipper: z.object({
     name: z.string().min(2).max(120),
     company: z.string().max(160).optional(),
-    email: z.string().email().max(160).optional().or(z.literal("").transform(() => undefined)),
+    email: z
+      .string()
+      .email()
+      .max(160)
+      .optional()
+      .or(z.literal('').transform(() => undefined)),
     phone: z.string().max(40).optional(),
     address: z.string().max(280).optional(),
   }),
   consignee: z.object({
     name: z.string().min(2).max(120),
     company: z.string().max(160).optional(),
-    email: z.string().email().max(160).optional().or(z.literal("").transform(() => undefined)),
+    email: z
+      .string()
+      .email()
+      .max(160)
+      .optional()
+      .or(z.literal('').transform(() => undefined)),
     phone: z.string().max(40).optional(),
     address: z.string().max(280).optional(),
   }),
@@ -114,200 +124,298 @@ export const FlightInputSchema = z.object({
 });
 export type FlightInput = z.infer<typeof FlightInputSchema>;
 
-export function listFlights(): FlightRecord[] {
-  const db = getDb();
-  const rows = db
-    .prepare("SELECT * FROM flights ORDER BY datetime(departure_at) DESC")
-    .all() as FlightRow[];
-  return rows.map(rowToFlight);
+export async function listFlights(): Promise<FlightRecord[]> {
+  try {
+    const { data, error } = await db
+      .from('flights')
+      .select('*')
+      .order('departure_at', { ascending: false });
+
+    if (error) throw error;
+    return (data as FlightRow[]).map(rowToFlight);
+  } catch (err) {
+    console.error('[flights] listFlights failed:', err);
+    throw err;
+  }
 }
 
-export function getFlightById(id: number): FlightRecord | null {
-  const db = getDb();
-  const row = db
-    .prepare("SELECT * FROM flights WHERE id = ?")
-    .get(id) as FlightRow | undefined;
-  return row ? rowToFlight(row) : null;
+export async function getFlightById(id: number): Promise<FlightRecord | null> {
+  try {
+    const { data, error } = await db
+      .from('flights')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error && error.code === 'PGRST116') {
+      // Not found
+      return null;
+    }
+    if (error) throw error;
+    return data ? rowToFlight(data as FlightRow) : null;
+  } catch (err) {
+    console.error('[flights] getFlightById failed:', err);
+    throw err;
+  }
 }
 
-export function getFlightByTrackingId(
+export async function getFlightByTrackingId(
   trackingId: string,
-): FlightRecord | null {
-  const db = getDb();
-  const row = db
-    .prepare("SELECT * FROM flights WHERE tracking_id = ?")
-    .get(trackingId) as FlightRow | undefined;
-  return row ? rowToFlight(row) : null;
+): Promise<FlightRecord | null> {
+  try {
+    const { data, error } = await db
+      .from('flights')
+      .select('*')
+      .eq('tracking_id', trackingId)
+      .single();
+
+    if (error && error.code === 'PGRST116') {
+      // Not found
+      return null;
+    }
+    if (error) throw error;
+    return data ? rowToFlight(data as FlightRow) : null;
+  } catch (err) {
+    console.error('[flights] getFlightByTrackingId failed:', err);
+    throw err;
+  }
 }
 
-export function createFlight(input: FlightInput): FlightRecord {
-  const db = getDb();
-  const trackingId = generateUniqueTrackingId();
-  const flightNumber = input.flightNumber?.trim() || generateFlightNumber();
-  const stmt = db.prepare(`
-    INSERT INTO flights (
-      tracking_id, flight_number, aircraft, origin_code, destination_code,
-      waypoints_json, cruise_kmh, departure_at, status, is_live,
-      cargo_json, shipper_json, consignee_json, notes
-    ) VALUES (
-      @trackingId, @flightNumber, @aircraft, @originCode, @destinationCode,
-      @waypointsJson, @cruiseKmh, @departureAt, @status, @isLive,
-      @cargoJson, @shipperJson, @consigneeJson, @notes
-    )
-  `);
-  const info = stmt.run({
-    trackingId,
-    flightNumber,
-    aircraft: input.aircraft,
-    originCode: input.originCode.toUpperCase(),
-    destinationCode: input.destinationCode.toUpperCase(),
-    waypointsJson: JSON.stringify(
-      input.waypoints.map((w) => ({ ...w, code: w.code.toUpperCase() })),
-    ),
-    cruiseKmh: input.cruiseKmh,
-    departureAt: input.departureAt,
-    status: input.status,
-    isLive: input.isLive ? 1 : 0,
-    cargoJson: JSON.stringify(input.cargo),
-    shipperJson: JSON.stringify(input.shipper),
-    consigneeJson: JSON.stringify(input.consignee),
-    notes: input.notes ?? null,
-  });
-  return getFlightById(Number(info.lastInsertRowid))!;
+export async function createFlight(
+  input: FlightInput,
+): Promise<FlightRecord> {
+  try {
+    const trackingId = await generateUniqueTrackingId();
+    const flightNumber = input.flightNumber?.trim() || generateFlightNumber();
+
+    const { data, error } = await db
+      .from('flights')
+      .insert([
+        {
+          tracking_id: trackingId,
+          flight_number: flightNumber,
+          aircraft: input.aircraft,
+          origin_code: input.originCode.toUpperCase(),
+          destination_code: input.destinationCode.toUpperCase(),
+          waypoints_json: JSON.stringify(
+            input.waypoints.map((w) => ({ ...w, code: w.code.toUpperCase() })),
+          ),
+          cruise_kmh: input.cruiseKmh,
+          departure_at: input.departureAt,
+          status: input.status,
+          is_live: input.isLive,
+          cargo_json: JSON.stringify(input.cargo),
+          shipper_json: JSON.stringify(input.shipper),
+          consignee_json: JSON.stringify(input.consignee),
+          notes: input.notes ?? null,
+        },
+      ])
+      .select()
+      .single();
+
+    if (error) throw error;
+    if (!data) throw new Error('Failed to create flight');
+
+    return rowToFlight(data as FlightRow);
+  } catch (err) {
+    console.error('[flights] createFlight failed:', err);
+    throw err;
+  }
 }
 
-export function updateFlight(id: number, input: FlightInput): FlightRecord {
-  const db = getDb();
-  const stmt = db.prepare(`
-    UPDATE flights SET
-      flight_number = @flightNumber,
-      aircraft = @aircraft,
-      origin_code = @originCode,
-      destination_code = @destinationCode,
-      waypoints_json = @waypointsJson,
-      cruise_kmh = @cruiseKmh,
-      departure_at = @departureAt,
-      status = @status,
-      is_live = @isLive,
-      cargo_json = @cargoJson,
-      shipper_json = @shipperJson,
-      consignee_json = @consigneeJson,
-      notes = @notes,
-      updated_at = datetime('now')
-    WHERE id = @id
-  `);
-  stmt.run({
-    id,
-    flightNumber: input.flightNumber?.trim() || generateFlightNumber(),
-    aircraft: input.aircraft,
-    originCode: input.originCode.toUpperCase(),
-    destinationCode: input.destinationCode.toUpperCase(),
-    waypointsJson: JSON.stringify(
-      input.waypoints.map((w) => ({ ...w, code: w.code.toUpperCase() })),
-    ),
-    cruiseKmh: input.cruiseKmh,
-    departureAt: input.departureAt,
-    status: input.status,
-    isLive: input.isLive ? 1 : 0,
-    cargoJson: JSON.stringify(input.cargo),
-    shipperJson: JSON.stringify(input.shipper),
-    consigneeJson: JSON.stringify(input.consignee),
-    notes: input.notes ?? null,
-  });
-  return getFlightById(id)!;
+export async function updateFlight(
+  id: number,
+  input: FlightInput,
+): Promise<FlightRecord> {
+  try {
+    const { data, error } = await db
+      .from('flights')
+      .update({
+        flight_number: input.flightNumber?.trim() || generateFlightNumber(),
+        aircraft: input.aircraft,
+        origin_code: input.originCode.toUpperCase(),
+        destination_code: input.destinationCode.toUpperCase(),
+        waypoints_json: JSON.stringify(
+          input.waypoints.map((w) => ({ ...w, code: w.code.toUpperCase() })),
+        ),
+        cruise_kmh: input.cruiseKmh,
+        departure_at: input.departureAt,
+        status: input.status,
+        is_live: input.isLive,
+        cargo_json: JSON.stringify(input.cargo),
+        shipper_json: JSON.stringify(input.shipper),
+        consignee_json: JSON.stringify(input.consignee),
+        notes: input.notes ?? null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    if (!data) throw new Error('Flight not found');
+
+    return rowToFlight(data as FlightRow);
+  } catch (err) {
+    console.error('[flights] updateFlight failed:', err);
+    throw err;
+  }
 }
 
-export function deleteFlight(id: number) {
-  const db = getDb();
-  db.prepare("DELETE FROM flights WHERE id = ?").run(id);
+export async function deleteFlight(id: number): Promise<void> {
+  try {
+    const { error } = await db.from('flights').delete().eq('id', id);
+
+    if (error) throw error;
+  } catch (err) {
+    console.error('[flights] deleteFlight failed:', err);
+    throw err;
+  }
 }
 
-export function setLive(id: number, isLive: boolean): FlightRecord {
-  const db = getDb();
-  db.prepare(
-    "UPDATE flights SET is_live = ?, updated_at = datetime('now') WHERE id = ?",
-  ).run(isLive ? 1 : 0, id);
-  return getFlightById(id)!;
+export async function setLive(
+  id: number,
+  isLive: boolean,
+): Promise<FlightRecord> {
+  try {
+    const { data, error } = await db
+      .from('flights')
+      .update({
+        is_live: isLive,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    if (!data) throw new Error('Flight not found');
+
+    return rowToFlight(data as FlightRow);
+  } catch (err) {
+    console.error('[flights] setLive failed:', err);
+    throw err;
+  }
 }
 
-export function setStatus(id: number, status: FlightStatus): FlightRecord {
-  const db = getDb();
-  db.prepare(
-    "UPDATE flights SET status = ?, updated_at = datetime('now') WHERE id = ?",
-  ).run(status, id);
-  return getFlightById(id)!;
+export async function setStatus(
+  id: number,
+  status: FlightStatus,
+): Promise<FlightRecord> {
+  try {
+    const { data, error } = await db
+      .from('flights')
+      .update({
+        status,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    if (!data) throw new Error('Flight not found');
+
+    return rowToFlight(data as FlightRow);
+  } catch (err) {
+    console.error('[flights] setStatus failed:', err);
+    throw err;
+  }
 }
 
-/**
- * Capture the live telemetry of `id` *now* and freeze the flight at that
- * exact location with status='emergency_stop' and the supplied reason.
- */
-export function declareEmergency(
+export async function declareEmergency(
   id: number,
   reason: string,
   resumeEta?: string,
-): FlightRecord {
-  const db = getDb();
-  const flight = getFlightById(id);
-  if (!flight) throw new Error("Flight not found");
+): Promise<FlightRecord> {
+  try {
+    const flight = await getFlightById(id);
+    if (!flight) throw new Error('Flight not found');
 
-  // Compute current live position. We force isLive=true for the calculation so
-  // we always get a real spatial position, even if the operator forgot to flip
-  // the live toggle.
-  const plan = buildRoutePlan(flight);
-  const pos = computeLivePosition(
-    { ...flight, isLive: true, status: flight.status === "scheduled" ? "in_flight" : flight.status },
-    plan,
-    new Date(),
-  );
+    const plan = buildRoutePlan(flight);
+    const pos = computeLivePosition(
+      {
+        ...flight,
+        isLive: true,
+        status: flight.status === 'scheduled' ? 'in_flight' : flight.status,
+      },
+      plan,
+      new Date(),
+    );
 
-  const snapshot: EmergencySnapshot = {
-    declaredAt: new Date().toISOString(),
-    reason: reason.trim().slice(0, 500),
-    lat: pos.lat,
-    lng: pos.lng,
-    bearing: pos.bearing,
-    altitudeM: pos.altitudeM,
-    groundSpeedKmh: pos.groundSpeedKmh,
-    legIndex: pos.currentLegIndex,
-    segmentProgress: pos.segmentProgress,
-    resumeEta: resumeEta?.trim() ? resumeEta : undefined,
-  };
+    const snapshot: EmergencySnapshot = {
+      declaredAt: new Date().toISOString(),
+      reason: reason.trim().slice(0, 500),
+      lat: pos.lat,
+      lng: pos.lng,
+      bearing: pos.bearing,
+      altitudeM: pos.altitudeM,
+      groundSpeedKmh: pos.groundSpeedKmh,
+      legIndex: pos.currentLegIndex,
+      segmentProgress: pos.segmentProgress,
+      resumeEta: resumeEta?.trim() ? resumeEta : undefined,
+    };
 
-  db.prepare(
-    `UPDATE flights
-        SET status = 'emergency_stop',
-            is_live = 1,
-            emergency_json = ?,
-            updated_at = datetime('now')
-      WHERE id = ?`,
-  ).run(JSON.stringify(snapshot), id);
-  return getFlightById(id)!;
-}
+    const { data, error } = await db
+      .from('flights')
+      .update({
+        status: 'emergency_stop',
+        is_live: true,
+        emergency_json: JSON.stringify(snapshot),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select()
+      .single();
 
-/** Clear an emergency hold and resume the previous status (defaults to in_flight). */
-export function clearEmergency(
-  id: number,
-  resumeStatus: FlightStatus = "in_flight",
-): FlightRecord {
-  const db = getDb();
-  db.prepare(
-    `UPDATE flights
-        SET status = ?,
-            emergency_json = NULL,
-            updated_at = datetime('now')
-      WHERE id = ?`,
-  ).run(resumeStatus, id);
-  return getFlightById(id)!;
-}
+    if (error) throw error;
+    if (!data) throw new Error('Flight not found');
 
-function generateUniqueTrackingId(): string {
-  const db = getDb();
-  const exists = db.prepare("SELECT 1 FROM flights WHERE tracking_id = ?");
-  for (let attempt = 0; attempt < 5; attempt++) {
-    const id = generateTrackingId();
-    if (!exists.get(id)) return id;
+    return rowToFlight(data as FlightRow);
+  } catch (err) {
+    console.error('[flights] declareEmergency failed:', err);
+    throw err;
   }
-  // extremely unlikely fallback
-  return generateTrackingId() + "-" + Date.now().toString(36).toUpperCase();
+}
+
+export async function clearEmergency(
+  id: number,
+  resumeStatus: FlightStatus = 'in_flight',
+): Promise<FlightRecord> {
+  try {
+    const { data, error } = await db
+      .from('flights')
+      .update({
+        status: resumeStatus,
+        emergency_json: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    if (!data) throw new Error('Flight not found');
+
+    return rowToFlight(data as FlightRow);
+  } catch (err) {
+    console.error('[flights] clearEmergency failed:', err);
+    throw err;
+  }
+}
+
+async function generateUniqueTrackingId(): Promise<string> {
+  const maxAttempts = 5;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const id = generateTrackingId();
+    const { data } = await db
+      .from('flights')
+      .select('id')
+      .eq('tracking_id', id)
+      .single();
+
+    if (!data) return id;
+  }
+  // Fallback with timestamp
+  return generateTrackingId() + '-' + Date.now().toString(36).toUpperCase();
 }

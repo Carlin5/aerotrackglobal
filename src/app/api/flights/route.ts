@@ -1,25 +1,28 @@
-import { NextResponse } from "next/server";
+import { NextResponse } from 'next/server';
 import {
   FlightInputSchema,
   createFlight,
   listFlights,
-} from "@/lib/flights";
-import { ensureDbReady, persistDb } from "@/lib/db";
-import { getSimpleSession } from "@/lib/simple-auth";
+} from '@/lib/flights';
+import { ensureDbReady, persistDb } from '@/lib/db';
+import { getSimpleSession } from '@/lib/simple-auth';
 
 export async function GET() {
   const session = await getSimpleSession();
   if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   try {
     await ensureDbReady();
-    const flights = listFlights();
+    const flights = await listFlights();
     return NextResponse.json({ flights });
   } catch (err) {
-    console.error("[api/flights] GET failed:", err);
+    console.error('[api/flights] GET failed:', err);
     return NextResponse.json(
-      { error: "Database error", detail: err instanceof Error ? err.message : "Unknown error" },
+      {
+        error: 'Database error',
+        detail: err instanceof Error ? err.message : 'Unknown error',
+      },
       { status: 500 },
     );
   }
@@ -28,7 +31,7 @@ export async function GET() {
 export async function POST(req: Request) {
   const session = await getSimpleSession();
   if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
@@ -36,21 +39,23 @@ export async function POST(req: Request) {
     const parsed = FlightInputSchema.safeParse(json);
     if (!parsed.success) {
       return NextResponse.json(
-        { error: "Invalid input", issues: parsed.error.issues },
+        { error: 'Invalid input', issues: parsed.error.issues },
         { status: 400 },
       );
     }
-    
+
     await ensureDbReady();
-    const flight = createFlight(parsed.data);
-    // Persist immediately after creation
+    const flight = await createFlight(parsed.data);
     await persistDb();
-    
+
     return NextResponse.json({ flight }, { status: 201 });
   } catch (err) {
-    console.error("[api/flights] POST failed:", err);
+    console.error('[api/flights] POST failed:', err);
     return NextResponse.json(
-      { error: "Failed to create flight", detail: err instanceof Error ? err.message : "Unknown error" },
+      {
+        error: 'Failed to create flight',
+        detail: err instanceof Error ? err.message : 'Unknown error',
+      },
       { status: 500 },
     );
   }
