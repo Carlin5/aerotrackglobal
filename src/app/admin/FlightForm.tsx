@@ -170,10 +170,12 @@ export function FlightForm({
       console.log('[FlightForm] Response status:', res.status);
       const rawText = await res.text();
       console.log('[FlightForm] Response body:', rawText.slice(0, 1000));
-      let j: { error?: string; detail?: string; flight?: { id: number; trackingId: string } } = {};
+      let j: { error?: string; detail?: string; debug?: string; flight?: { id: number; trackingId: string } } = {};
       try { j = JSON.parse(rawText); } catch { /* not JSON */ }
       if (!res.ok) {
-        setError(j.detail || j.error || `Save failed (${res.status})`);
+        const msg = j.detail || j.error || `Save failed (${res.status})`;
+        const dbg = j.debug ? `\n(Debug: ${j.debug})` : '';
+        setError(msg + dbg);
         setBusy(false);
         return;
       }

@@ -55,13 +55,26 @@ export async function POST(req: Request) {
     return NextResponse.json({ flight }, { status: 201 });
   } catch (err) {
     console.error('[api/flights] POST failed:', err);
-    const message = err instanceof Error ? err.message : 'Unknown error';
-    const fullError = err instanceof Error ? err.stack || err.message : String(err);
-    console.error('[api/flights] Full error:', fullError);
+    // Robust error serialization — handles Error, objects, strings, undefined
+    let message = 'Unknown error';
+    let detail = '';
+    if (err instanceof Error) {
+      message = err.message;
+      detail = err.stack || err.message;
+    } else if (err && typeof err === 'object') {
+      // Supabase/PostgREST errors often have .message, .code, .details
+      const anyErr = err as Record<string, unknown>;
+      message = String(anyErr.message || anyErr.error_description || anyErr.error || JSON.stringify(err));
+      detail = JSON.stringify(err);
+    } else if (err !== undefined && err !== null) {
+      message = String(err);
+    }
+    console.error('[api/flights] Full error:', detail || message);
     return NextResponse.json(
       {
         error: 'Failed to create flight',
         detail: message,
+        debug: detail,
       },
       { status: 500 },
     );
