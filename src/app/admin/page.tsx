@@ -21,7 +21,7 @@ export const dynamic = "force-dynamic";
 export default async function AdminDashboard() {
   const session = await getSimpleSession();
   const operatorName = session?.username ?? "operator";
-  const flights = listFlights();
+  const flights = await listFlights();
   const live = flights.filter(
     (f) =>
       f.isLive &&

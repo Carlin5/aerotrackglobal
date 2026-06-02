@@ -32,7 +32,7 @@ export async function POST(
   const id = Number(params.id);
   if (!Number.isFinite(id))
     return NextResponse.json({ error: "Bad id" }, { status: 400 });
-  if (!getFlightById(id))
+  if (!(await getFlightById(id)))
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const json = await req.json().catch(() => null);
@@ -43,7 +43,7 @@ export async function POST(
       { status: 400 },
     );
   }
-  const flight = declareEmergency(id, parsed.data.reason, parsed.data.resumeEta);
+  const flight = await declareEmergency(id, parsed.data.reason, parsed.data.resumeEta);
   return NextResponse.json({ flight });
 }
 
@@ -56,7 +56,7 @@ export async function DELETE(
   const id = Number(params.id);
   if (!Number.isFinite(id))
     return NextResponse.json({ error: "Bad id" }, { status: 400 });
-  if (!getFlightById(id))
+  if (!(await getFlightById(id)))
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const json = await req.json().catch(() => ({}));
@@ -64,6 +64,6 @@ export async function DELETE(
   const resumeStatus: FlightStatus = parsed.success
     ? parsed.data.resumeStatus
     : "in_flight";
-  const flight = clearEmergency(id, resumeStatus);
+  const flight = await clearEmergency(id, resumeStatus);
   return NextResponse.json({ flight });
 }
