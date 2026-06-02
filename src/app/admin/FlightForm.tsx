@@ -167,15 +167,16 @@ export function FlightForm({
           body: JSON.stringify(payload),
         },
       );
+      console.log('[FlightForm] Response status:', res.status);
+      const rawText = await res.text();
+      console.log('[FlightForm] Response body:', rawText.slice(0, 1000));
+      let j: { error?: string; detail?: string; flight?: { id: number; trackingId: string } } = {};
+      try { j = JSON.parse(rawText); } catch { /* not JSON */ }
       if (!res.ok) {
-        const j = (await res.json().catch(() => ({}))) as { error?: string; detail?: string };
         setError(j.detail || j.error || `Save failed (${res.status})`);
         setBusy(false);
         return;
       }
-      const j = (await res.json()) as {
-        flight?: { id: number; trackingId: string };
-      };
       if (mode === "create" && j.flight) {
         setCreated({ id: j.flight.id, trackingId: j.flight.trackingId });
       } else {

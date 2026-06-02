@@ -36,17 +36,21 @@ export async function POST(req: Request) {
 
   try {
     const json = await req.json().catch(() => null);
+    console.log('[api/flights] POST received body keys:', json ? Object.keys(json) : 'null');
     const parsed = FlightInputSchema.safeParse(json);
     if (!parsed.success) {
+      console.log('[api/flights] Validation failed:', parsed.error.issues);
       return NextResponse.json(
         { error: 'Invalid input', issues: parsed.error.issues },
         { status: 400 },
       );
     }
 
+    console.log('[api/flights] Validation passed, creating flight...');
     await ensureDbReady();
     const flight = await createFlight(parsed.data);
     await persistDb();
+    console.log('[api/flights] Flight created:', flight.trackingId);
 
     return NextResponse.json({ flight }, { status: 201 });
   } catch (err) {
@@ -58,7 +62,6 @@ export async function POST(req: Request) {
       {
         error: 'Failed to create flight',
         detail: message,
-        stack: process.env.NODE_ENV === 'development' ? fullError : undefined,
       },
       { status: 500 },
     );
