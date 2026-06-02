@@ -30,13 +30,13 @@ const PLANE_ALT_SCALE = 1 / 170_000; // metres -> globe units, tuned for visibil
 /** Build a stylised cargo-jet mesh oriented forward along -Z, up along +Y. */
 function buildPlaneMesh(emergency: boolean) {
   const group = new THREE.Group();
-  const bodyColor = emergency ? 0xff7575 : 0xeefcff;
-  const accent = emergency ? 0xff3030 : 0x22d3ee;
+  const bodyColor = emergency ? 0xff7575 : 0xfee2e2;
+  const accent = emergency ? 0xff3030 : 0xef4444;
   const matBody = new THREE.MeshStandardMaterial({
     color: bodyColor,
     metalness: 0.55,
     roughness: 0.32,
-    emissive: emergency ? 0x7a0710 : 0x062a3a,
+    emissive: emergency ? 0x7a0710 : 0x3f0f0f,
     emissiveIntensity: 0.85,
   });
   const matAccent = new THREE.MeshStandardMaterial({
@@ -119,7 +119,7 @@ export default function GlobeView({
         startLng: a.lng,
         endLat: sequence[i + 1].lat,
         endLng: sequence[i + 1].lng,
-        color: ["#22D3EE", "#F97316"],
+        color: ["#EF4444", "#22C55E"], // Red to green gradient
       })),
     [sequence],
   );
@@ -130,21 +130,21 @@ export default function GlobeView({
         lat: origin.lat,
         lng: origin.lng,
         size: 0.6,
-        color: "#22D3EE",
+        color: "#EF4444", // Red for origin
         label: `${origin.code} · ${origin.city}`,
       },
       ...waypoints.map((w) => ({
         lat: w.lat,
         lng: w.lng,
         size: 0.5,
-        color: "#22D3EE",
+        color: "#A78BFA", // Purple for waypoints
         label: `${w.code} · ${w.city}`,
       })),
       {
         lat: destination.lat,
         lng: destination.lng,
         size: 0.7,
-        color: "#F97316",
+        color: "#22C55E", // Green for destination
         label: `${destination.code} · ${destination.city}`,
       },
     ],
@@ -304,7 +304,7 @@ export default function GlobeView({
         pathColor={() =>
           isEmergency
             ? ["rgba(255, 90, 90, 0.05)", "rgba(255, 90, 90, 0.95)"]
-            : ["rgba(34, 211, 238, 0.05)", "rgba(34, 211, 238, 0.95)"]
+            : ["rgba(239, 68, 68, 0.05)", "rgba(239, 68, 68, 0.95)"]
         }
         pathStroke={1.1}
         pathTransitionDuration={0}
@@ -317,7 +317,7 @@ export default function GlobeView({
         ringColor={() =>
           isEmergency
             ? (t: number) => `rgba(255, 82, 82, ${1 - t})`
-            : (t: number) => `rgba(34, 211, 238, ${0.85 * (1 - t)})`
+            : (t: number) => `rgba(239, 68, 68, ${0.85 * (1 - t)})`
         }
         ringMaxRadius={isEmergency ? 6 : 4.5}
         ringPropagationSpeed={isEmergency ? 5 : 3.5}
@@ -332,12 +332,12 @@ export default function GlobeView({
           planeMeshRef.current = mesh;
           return mesh;
         }}
-        customThreeObjectUpdate={(
+        customThreeObjectUpdate={({
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          obj: any,
+          obj,
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          d: any,
-        ) => {
+          d,
+        }: any) => {
           if (!globeRef.current) return;
           const xyz = globeRef.current.getCoords(d.lat, d.lng, d.altitude);
           const position = new THREE.Vector3(xyz.x, xyz.y, xyz.z);
@@ -363,7 +363,7 @@ export default function GlobeView({
       {/* HUD overlays */}
       <span className="hud-reticle-tr" aria-hidden />
       <span className="hud-reticle-bl" aria-hidden />
-      <div className="pointer-events-none absolute right-3 top-3 flex items-center gap-2 rounded-md border border-cyan-500/30 bg-bg-0/75 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.25em] text-cyan-400 backdrop-blur-md">
+      <div className="pointer-events-none absolute right-3 top-3 flex items-center gap-2 rounded-md border border-cyan-500/30 bg-bg-0/75 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.25em]">
         <span className="inline-block h-1.5 w-1.5 rounded-full bg-cyan-400 shadow-[0_0_6px_rgba(34,211,238,0.9)]" />
         Orbital · 3D
       </div>
@@ -381,7 +381,7 @@ export default function GlobeView({
         </div>
       ) : null}
       {isEmergency ? (
-        <div className="pointer-events-none absolute left-3 top-3 flex items-center gap-1.5 rounded-md border border-signal-red/40 bg-bg-0/85 px-2 py-1 font-mono text-[10px] uppercase tracking-wider text-signal-red backdrop-blur-md">
+        <div className="pointer-events-none absolute left-3 top-3 flex items-center gap-1.5 rounded-md border border-signal-red/40 bg-bg-0/85 px-2 py-1 font-mono text-[10px] uppercase tracking-wider">
           <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-signal-red shadow-[0_0_6px_rgba(239,68,68,0.95)]" />
           Emergency hold
         </div>

@@ -36,6 +36,16 @@ export function getDb(): Database.Database {
   return db;
 }
 
+export async function ensureDbReady(): Promise<void> {
+  getDb();
+}
+
+export async function persistDb(): Promise<void> {
+  const db = getDb();
+  // Ensure data is written to disk and optimize the database
+  db.exec("PRAGMA optimize;");
+}
+
 function migrate(db: Database.Database) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS flights (

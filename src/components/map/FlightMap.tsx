@@ -33,8 +33,8 @@ interface Props {
 
 // Clean top-down aviation silhouette
 function planeIcon(bearing: number, emergency: boolean) {
-  const color = emergency ? "#FF5252" : "#22D3EE";
-  const fill = emergency ? "#FFE6E6" : "#E6FAFF";
+  const color = emergency ? "#FF5252" : "#EF4444";
+  const fill = emergency ? "#FFE6E6" : "#FEE2E2";
   const html = `
     <span class="pulse ${emergency ? "emergency" : ""}"></span>
     <span class="pulse pulse-2 ${emergency ? "emergency" : ""}"></span>
@@ -59,9 +59,9 @@ function planeIcon(bearing: number, emergency: boolean) {
 
 type AirportKind = "origin" | "waypoint" | "destination";
 function airportIcon(kind: AirportKind, pulsing = false) {
-  // origin = cyan filled, destination = orange w/ pulse, waypoint = small neutral dot
+  // origin = red, destination = green, waypoint = neutral
   const color =
-    kind === "destination" ? "#F97316" : kind === "origin" ? "#22D3EE" : "#8A9AB3";
+    kind === "destination" ? "#22C55E" : kind === "origin" ? "#EF4444" : "#8A9AB3";
   const inner = kind === "waypoint" ? 2.2 : 3.4;
   const outerHalo = kind === "waypoint" ? 6 : 9;
   const html = `
@@ -134,11 +134,11 @@ export default function FlightMap({
     () =>
       isEmergency
         ? { line: "#FF5252", glow: "#FF5252", soft: "#FF8A8A" }
-        : { line: "#22D3EE", glow: "#22D3EE", soft: "#7BD8F5" },
+        : { line: "#EF4444", glow: "#EF4444", soft: "#FCA5A5" }, // Red for flown distance
     [isEmergency],
   );
 
-  // Split polyline by progress: flown (vivid + glow) vs remaining (dashed dim)
+  // Split polyline by progress: flown (red + glow) vs remaining (green dashed)
   const { flownSegs, remainingSegs, fitPoints } = useMemo(() => {
     const N = polyline.length;
     const cutRaw =
@@ -187,13 +187,13 @@ export default function FlightMap({
           opacity={0.7}
         />
 
-        {/* Remaining route — dashed dim guide line */}
+        {/* Remaining route — green dashed guide line */}
         {remainingSegs.map((seg, i) => (
           <Polyline
             key={`rem-${i}`}
             positions={seg}
             pathOptions={{
-              color: palette.soft,
+              color: "#22C55E", // Green for remaining distance
               weight: 1.6,
               opacity: 0.45,
               dashArray: "4 8",
@@ -202,7 +202,7 @@ export default function FlightMap({
           />
         ))}
 
-        {/* Flown route — wide glow + crisp top stroke */}
+        {/* Flown route — red glow + crisp top stroke */}
         {flownSegs.map((seg, i) => (
           <Polyline
             key={`fg-glow-${i}`}
@@ -234,7 +234,7 @@ export default function FlightMap({
             key={`fg-top-${i}`}
             positions={seg}
             pathOptions={{
-              color: "#E6FAFF",
+              color: "#FEE2E2",
               weight: 1.6,
               opacity: 0.95,
               lineCap: "round",
@@ -317,7 +317,7 @@ export default function FlightMap({
       </MapContainer>
 
       {/* HUD overlays */}
-      <div className="pointer-events-none absolute left-3 top-3 flex items-center gap-2 rounded-md border border-cyan-500/30 bg-bg-0/75 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.25em] text-cyan-400 backdrop-blur-md">
+      <div className="pointer-events-none absolute left-3 top-3 flex items-center gap-2 rounded-md border border-cyan-500/30 bg-bg-0/75 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.25em]">
         <span className="inline-block h-1.5 w-1.5 rounded-full bg-cyan-400 shadow-[0_0_6px_rgba(34,211,238,0.9)]" />
         Tactical · 2D
       </div>
@@ -342,7 +342,7 @@ export default function FlightMap({
       ) : null}
 
       {isEmergency ? (
-        <div className="pointer-events-none absolute right-3 top-3 flex items-center gap-1.5 rounded-md border border-signal-red/40 bg-bg-0/85 px-2 py-1 font-mono text-[10px] uppercase tracking-wider text-signal-red backdrop-blur-md">
+        <div className="pointer-events-none absolute right-3 top-3 flex items-center gap-1.5 rounded-md border border-signal-red/40 bg-bg-0/85 px-2 py-1 font-mono text-[10px] uppercase tracking-wider">
           <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-signal-red shadow-[0_0_6px_rgba(239,68,68,0.95)]" />
           Emergency hold
         </div>

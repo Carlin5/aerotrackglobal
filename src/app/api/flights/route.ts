@@ -4,6 +4,7 @@ import {
   createFlight,
   listFlights,
 } from "@/lib/flights";
+import { ensureDbReady, persistDb } from "@/lib/db";
 import { getSimpleSession } from "@/lib/simple-auth";
 
 export async function GET() {
@@ -11,6 +12,7 @@ export async function GET() {
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  await ensureDbReady();
   const flights = listFlights();
   return NextResponse.json({ flights });
 }
@@ -29,6 +31,8 @@ export async function POST(req: Request) {
       { status: 400 },
     );
   }
+  await ensureDbReady();
   const flight = createFlight(parsed.data);
+  await persistDb();
   return NextResponse.json({ flight }, { status: 201 });
 }
