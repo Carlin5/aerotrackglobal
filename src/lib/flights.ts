@@ -1,6 +1,6 @@
 import 'server-only';
 import { z } from 'zod';
-import { db } from './db';
+import { getDb } from './db';
 import type {
   Cargo,
   EmergencySnapshot,
@@ -126,7 +126,7 @@ export type FlightInput = z.infer<typeof FlightInputSchema>;
 
 export async function listFlights(): Promise<FlightRecord[]> {
   try {
-    const { data, error } = await db
+    const { data, error } = await getDb()
       .from('flights')
       .select('*')
       .order('departure_at', { ascending: false });
@@ -148,7 +148,7 @@ export async function listFlights(): Promise<FlightRecord[]> {
 
 export async function getFlightById(id: number): Promise<FlightRecord | null> {
   try {
-    const { data, error } = await db
+    const { data, error } = await getDb()
       .from('flights')
       .select('*')
       .eq('id', id)
@@ -170,7 +170,7 @@ export async function getFlightByTrackingId(
   trackingId: string,
 ): Promise<FlightRecord | null> {
   try {
-    const { data, error } = await db
+    const { data, error } = await getDb()
       .from('flights')
       .select('*')
       .eq('tracking_id', trackingId)
@@ -218,7 +218,7 @@ export async function createFlight(
     };
     console.log('[flights] insert payload keys:', Object.keys(insertPayload));
 
-    const { data, error } = await db
+    const { data, error } = await getDb()
       .from('flights')
       .insert([insertPayload])
       .select()
@@ -249,7 +249,7 @@ export async function updateFlight(
   input: FlightInput,
 ): Promise<FlightRecord> {
   try {
-    const { data, error } = await db
+    const { data, error } = await getDb()
       .from('flights')
       .update({
         flight_number: input.flightNumber?.trim() || generateFlightNumber(),
@@ -285,7 +285,7 @@ export async function updateFlight(
 
 export async function deleteFlight(id: number): Promise<void> {
   try {
-    const { error } = await db.from('flights').delete().eq('id', id);
+    const { error } = await getDb().from('flights').delete().eq('id', id);
 
     if (error) throw error;
   } catch (err) {
@@ -299,7 +299,7 @@ export async function setLive(
   isLive: boolean,
 ): Promise<FlightRecord> {
   try {
-    const { data, error } = await db
+    const { data, error } = await getDb()
       .from('flights')
       .update({
         is_live: isLive,
@@ -324,7 +324,7 @@ export async function setStatus(
   status: FlightStatus,
 ): Promise<FlightRecord> {
   try {
-    const { data, error } = await db
+    const { data, error } = await getDb()
       .from('flights')
       .update({
         status,
@@ -377,7 +377,7 @@ export async function declareEmergency(
       resumeEta: resumeEta?.trim() ? resumeEta : undefined,
     };
 
-    const { data, error } = await db
+    const { data, error } = await getDb()
       .from('flights')
       .update({
         status: 'emergency_stop',
@@ -404,7 +404,7 @@ export async function clearEmergency(
   resumeStatus: FlightStatus = 'in_flight',
 ): Promise<FlightRecord> {
   try {
-    const { data, error } = await db
+    const { data, error } = await getDb()
       .from('flights')
       .update({
         status: resumeStatus,
@@ -431,7 +431,7 @@ async function generateUniqueTrackingId(): Promise<string> {
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const id = generateTrackingId();
     console.log('[flights] checking trackingId attempt', attempt, id);
-    const { data, error } = await db
+    const { data, error } = await getDb()
       .from('flights')
       .select('id')
       .eq('tracking_id', id)

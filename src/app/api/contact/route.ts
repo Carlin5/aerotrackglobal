@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 
 const ContactSchema = z.object({
   name: z.string().min(2).max(120),
@@ -26,7 +26,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true });
   }
 
-  const { error } = await db
+  const { error } = await getDb()
     .from('contact_messages')
     .insert({
       name: parsed.data.name,
