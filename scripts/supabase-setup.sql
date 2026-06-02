@@ -41,6 +41,10 @@ create table if not exists contact_messages (
 alter table flights enable row level security;
 alter table contact_messages enable row level security;
 
+-- Drop existing policies if they exist, then recreate
+drop policy if exists "Allow all" on flights;
+drop policy if exists "Allow all" on contact_messages;
+
 -- Create policy to allow all operations (service role bypasses RLS anyway)
 create policy "Allow all" on flights
   for all using (true) with check (true);
