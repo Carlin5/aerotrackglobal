@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getDb } from "@/lib/db";
+import { db } from "@/lib/db";
 
 const ContactSchema = z.object({
   name: z.string().min(2).max(120),
@@ -26,17 +26,20 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true });
   }
 
-  const db = getDb();
-  db.prepare(
-    `INSERT INTO contact_messages (name, email, company, subject, message)
-     VALUES (?, ?, ?, ?, ?)`,
-  ).run(
-    parsed.data.name,
-    parsed.data.email,
-    parsed.data.company ?? null,
-    parsed.data.subject,
-    parsed.data.message,
-  );
+  const { error } = await db
+    .from('contact_messages')
+    .insert({
+      name: parsed.data.name,
+      email: parsed.data.email,
+      company: parsed.data.company ?? null,
+      subject: parsed.data.subject,
+      message: parsed.data.message,
+    });
+
+  if (error) {
+    console.error('[contact] insert failed:', error);
+    return NextResponse.json({ error: "Failed to save message" }, { status: 500 });
+  }
 
   return NextResponse.json({ ok: true });
 }

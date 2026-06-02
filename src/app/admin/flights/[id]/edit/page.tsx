@@ -4,14 +4,14 @@ import { FlightForm } from "../../../FlightForm";
 
 export const dynamic = "force-dynamic";
 
-export default function EditFlightPage({
+export default async function EditFlightPage({
   params,
 }: {
   params: { id: string };
 }) {
   const id = Number(params.id);
   if (!Number.isFinite(id)) notFound();
-  const flight = getFlightById(id);
+  const flight = await getFlightById(id);
   if (!flight) notFound();
 
   return (
