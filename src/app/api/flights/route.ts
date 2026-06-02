@@ -13,18 +13,13 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   try {
-    await ensureDbReady();
     const flights = await listFlights();
     return NextResponse.json({ flights });
   } catch (err) {
     console.error('[api/flights] GET failed:', err);
-    return NextResponse.json(
-      {
-        error: 'Database error',
-        detail: err instanceof Error ? err.message : 'Unknown error',
-      },
-      { status: 500 },
-    );
+    const isErrLike = err && typeof err === 'object' && 'message' in err && typeof (err as Error).message === 'string';
+    const message = isErrLike ? (err as Error).message : String(err);
+    return NextResponse.json({ error: 'Database error', detail: message }, { status: 500 });
   }
 }
 
@@ -47,7 +42,6 @@ export async function POST(req: Request) {
     }
 
     console.log('[api/flights] Validation passed, creating flight...');
-    await ensureDbReady();
     const flight = await createFlight(parsed.data);
     await persistDb();
     console.log('[api/flights] Flight created:', flight.trackingId);
@@ -55,27 +49,20 @@ export async function POST(req: Request) {
     return NextResponse.json({ flight }, { status: 201 });
   } catch (err) {
     console.error('[api/flights] POST failed:', err);
-    // Robust error serialization — handles Error, objects, strings, undefined
-    let message = 'Unknown error';
-    let detail = '';
-    if (err instanceof Error) {
-      message = err.message;
-      detail = err.stack || err.message;
-    } else if (err && typeof err === 'object') {
-      // Supabase/PostgREST errors often have .message, .code, .details
-      const anyErr = err as Record<string, unknown>;
-      message = String(anyErr.message || anyErr.error_description || anyErr.error || JSON.stringify(err));
-      detail = JSON.stringify(err);
-    } else if (err !== undefined && err !== null) {
-      message = String(err);
-    }
-    console.error('[api/flights] Full error:', detail || message);
+    // Duck-typing: realm-safe check for Error-like objects in serverless
+    const isErrLike =
+      err && typeof err === 'object' && 'message' in err && typeof (err as Error).message === 'string';
+    const message = isErrLike
+      ? (err as Error).message
+      : err !== undefined && err !== null
+        ? String(err)
+        : 'Unknown error';
+    const detail = isErrLike
+      ? (err as Error).stack || (err as Error).message
+      : JSON.stringify(err);
+    console.error('[api/flights] Full error:', detail);
     return NextResponse.json(
-      {
-        error: 'Failed to create flight',
-        detail: message,
-        debug: detail,
-      },
+      { error: 'Failed to create flight', detail: message, debug: detail },
       { status: 500 },
     );
   }
