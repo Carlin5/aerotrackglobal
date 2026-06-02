@@ -185,33 +185,40 @@ export async function createFlight(
   input: FlightInput,
 ): Promise<FlightRecord> {
   try {
+    console.log('[flights] createFlight started');
     const trackingId = await generateUniqueTrackingId();
+    console.log('[flights] generated trackingId:', trackingId);
     const flightNumber = input.flightNumber?.trim() || generateFlightNumber();
+    console.log('[flights] generated flightNumber:', flightNumber);
+
+    const insertPayload = {
+      tracking_id: trackingId,
+      flight_number: flightNumber,
+      aircraft: input.aircraft,
+      origin_code: input.originCode.toUpperCase(),
+      destination_code: input.destinationCode.toUpperCase(),
+      waypoints_json: JSON.stringify(
+        input.waypoints.map((w) => ({ ...w, code: w.code.toUpperCase() })),
+      ),
+      cruise_kmh: input.cruiseKmh,
+      departure_at: input.departureAt,
+      status: input.status,
+      is_live: input.isLive,
+      cargo_json: JSON.stringify(input.cargo),
+      shipper_json: JSON.stringify(input.shipper),
+      consignee_json: JSON.stringify(input.consignee),
+      notes: input.notes ?? null,
+    };
+    console.log('[flights] insert payload keys:', Object.keys(insertPayload));
 
     const { data, error } = await db
       .from('flights')
-      .insert([
-        {
-          tracking_id: trackingId,
-          flight_number: flightNumber,
-          aircraft: input.aircraft,
-          origin_code: input.originCode.toUpperCase(),
-          destination_code: input.destinationCode.toUpperCase(),
-          waypoints_json: JSON.stringify(
-            input.waypoints.map((w) => ({ ...w, code: w.code.toUpperCase() })),
-          ),
-          cruise_kmh: input.cruiseKmh,
-          departure_at: input.departureAt,
-          status: input.status,
-          is_live: input.isLive,
-          cargo_json: JSON.stringify(input.cargo),
-          shipper_json: JSON.stringify(input.shipper),
-          consignee_json: JSON.stringify(input.consignee),
-          notes: input.notes ?? null,
-        },
-      ])
+      .insert([insertPayload])
       .select()
       .single();
+
+    console.log('[flights] insert result - error:', error ? error.message : 'none');
+    console.log('[flights] insert result - data:', data ? 'has data' : 'no data');
 
     if (error) throw error;
     if (!data) throw new Error('Failed to create flight');
@@ -405,16 +412,25 @@ export async function clearEmergency(
 }
 
 async function generateUniqueTrackingId(): Promise<string> {
+  console.log('[flights] generateUniqueTrackingId started');
   const maxAttempts = 5;
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const id = generateTrackingId();
-    const { data } = await db
+    console.log('[flights] checking trackingId attempt', attempt, id);
+    const { data, error } = await db
       .from('flights')
       .select('id')
       .eq('tracking_id', id)
       .single();
 
+    if (error) {
+      console.log('[flights] uniqueness check error:', error.code, error.message);
+      // PGRST116 = no rows found (which means ID is available)
+      if (error.code === 'PGRST116') return id;
+      throw error;
+    }
     if (!data) return id;
+    console.log('[flights] trackingId already exists:', id);
   }
   // Fallback with timestamp
   return generateTrackingId() + '-' + Date.now().toString(36).toUpperCase();

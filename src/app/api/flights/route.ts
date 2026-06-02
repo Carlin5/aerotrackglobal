@@ -51,10 +51,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ flight }, { status: 201 });
   } catch (err) {
     console.error('[api/flights] POST failed:', err);
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    const fullError = err instanceof Error ? err.stack || err.message : String(err);
+    console.error('[api/flights] Full error:', fullError);
     return NextResponse.json(
       {
         error: 'Failed to create flight',
-        detail: err instanceof Error ? err.message : 'Unknown error',
+        detail: message,
+        stack: process.env.NODE_ENV === 'development' ? fullError : undefined,
       },
       { status: 500 },
     );

@@ -46,10 +46,16 @@ export function getDb(): SupabaseClient {
   return _db;
 }
 
-// Backward-compatible export
-export const db = new Proxy({} as SupabaseClient, {
+// Lazy-initialized db object that forwards all property accesses to the real client
+export const db: SupabaseClient = new Proxy({} as SupabaseClient, {
   get(_target, prop) {
-    return getDb()[prop as keyof SupabaseClient];
+    const client = getDb();
+    const value = client[prop as keyof SupabaseClient];
+    // Bind methods so `this` stays on the real client
+    if (typeof value === 'function') {
+      return value.bind(client);
+    }
+    return value;
   },
 });
 
@@ -61,9 +67,14 @@ export function getSupabaseClient(): SupabaseClient {
   return _supabaseClient;
 }
 
-export const supabaseClient = new Proxy({} as SupabaseClient, {
+export const supabaseClient: SupabaseClient = new Proxy({} as SupabaseClient, {
   get(_target, prop) {
-    return getSupabaseClient()[prop as keyof SupabaseClient];
+    const client = getSupabaseClient();
+    const value = client[prop as keyof SupabaseClient];
+    if (typeof value === 'function') {
+      return value.bind(client);
+    }
+    return value;
   },
 });
 
