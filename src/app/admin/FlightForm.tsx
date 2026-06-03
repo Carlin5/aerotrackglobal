@@ -17,7 +17,8 @@ import { Button } from "@/components/ui/Button";
 import { Input, Textarea, Select, Field, FieldRow, Label } from "@/components/ui/Input";
 import { Panel, PanelHeader } from "@/components/ui/Panel";
 import { Badge } from "@/components/ui/Badge";
-import type { Cargo, FlightStatus, Party, Waypoint } from "@/types";
+import type { Cargo, FlightRecord, FlightStatus, Party, Waypoint } from "@/types";
+import { saveFlight } from "@/lib/hybrid-client";
 
 interface FormState {
   flightNumber: string;
@@ -170,7 +171,7 @@ export function FlightForm({
       console.log('[FlightForm] Response status:', res.status);
       const rawText = await res.text();
       console.log('[FlightForm] Response body:', rawText.slice(0, 1000));
-      let j: { error?: string; detail?: string; debug?: string; flight?: { id: number; trackingId: string } } = {};
+      let j: { error?: string; detail?: string; debug?: string; flight?: FlightRecord } = {};
       try { j = JSON.parse(rawText); } catch { /* not JSON */ }
       if (!res.ok) {
         const msg = j.detail || j.error || `Save failed (${res.status})`;
@@ -178,6 +179,10 @@ export function FlightForm({
         setError(msg + dbg);
         setBusy(false);
         return;
+      }
+      if (j.flight) {
+        // Dual-write: immediately back up to localStorage so refresh can't kill it
+        await saveFlight(j.flight);
       }
       if (mode === "create" && j.flight) {
         setCreated({ id: j.flight.id, trackingId: j.flight.trackingId });

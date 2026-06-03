@@ -20,6 +20,9 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Input } from "@/components/ui/Input";
 import { formatDistanceKm, formatDuration, cn } from "@/lib/utils";
+import { buildRoutePlan } from "@/lib/simulation";
+import { listFlightsHybrid } from "@/lib/hybrid-client";
+import type { FlightRecord } from "@/types";
 import { EmergencyDialog } from "./EmergencyDialog";
 import { DeleteFlightDialog } from "./DeleteFlightDialog";
 
@@ -71,6 +74,31 @@ function matchesStatusFilter(row: Row, filter: StatusFilter): boolean {
   }
 }
 
+function flightToRow(f: FlightRecord): Row {
+  let totalDistanceKm = 0;
+  let totalFlightMin = 0;
+  try {
+    const p = buildRoutePlan(f);
+    totalDistanceKm = p.totalDistanceKm;
+    totalFlightMin = p.totalTripMin;
+  } catch { /* ignore bad routes */ }
+  return {
+    id: f.id,
+    trackingId: f.trackingId,
+    flightNumber: f.flightNumber,
+    originCode: f.originCode,
+    destinationCode: f.destinationCode,
+    departureAt: f.departureAt,
+    status: f.status,
+    isLive: f.isLive,
+    hasEmergency: f.status === "emergency_stop" && !!f.emergency,
+    cargoDescription: f.cargo.description,
+    cargoWeightKg: f.cargo.weightKg,
+    totalDistanceKm,
+    totalFlightMin,
+  };
+}
+
 export function FlightsTable({ flights }: { flights: Row[] }) {
   const router = useRouter();
   const [pendingId, setPendingId] = useState<number | null>(null);
@@ -93,6 +121,24 @@ export function FlightsTable({ flights }: { flights: Row[] }) {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [copiedId, setCopiedId] = useState<number | null>(null);
+  const [mergedFlights, setMergedFlights] = useState<Row[]>(flights);
+
+  // Hybrid read: merge server flights with localStorage on mount
+  useEffect(() => {
+    listFlightsHybrid()
+      .then((local) => {
+        const localRows = local.map(flightToRow);
+        // Merge: server flights take precedence, locals fill gaps
+        const map = new Map<number, Row>();
+        localRows.forEach((r) => map.set(r.id, r));
+        flights.forEach((r) => map.set(r.id, r));
+        setMergedFlights(Array.from(map.values()));
+      })
+      .catch(() => {
+        // Fallback: just use server flights
+        setMergedFlights(flights);
+      });
+  }, [flights]);
 
   useEffect(() => {
     if (!banner) return;
@@ -108,7 +154,7 @@ export function FlightsTable({ flights }: { flights: Row[] }) {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return flights.filter((f) => {
+    return mergedFlights.filter((f) => {
       if (!matchesStatusFilter(f, statusFilter)) return false;
       if (!q) return true;
       return (
