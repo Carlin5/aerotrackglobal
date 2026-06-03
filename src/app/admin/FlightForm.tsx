@@ -105,7 +105,7 @@ export function FlightForm({
   }));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [created, setCreated] = useState<{ trackingId: string; id: number } | null>(null);
+  const [created, setCreated] = useState<{ trackingId: string; id: number; localOnly?: boolean } | null>(null);
 
   function patch<K extends keyof FormState>(key: K, value: FormState[K]) {
     setState((s) => ({ ...s, [key]: value }));
@@ -209,6 +209,11 @@ export function FlightForm({
         const msg = j.detail || j.error || `Save failed (${res.status})`;
         const dbg = j.debug ? `\n(Debug: ${j.debug})` : '';
         setError(msg + dbg + "\n(Flight was saved to localStorage — it will survive refreshes.)");
+        // Even though Supabase failed, the flight IS in localStorage.
+        // Show the success screen so the user gets their tracking ID.
+        if (mode === "create") {
+          setCreated({ id: tempFlight.id, trackingId: tempFlight.trackingId, localOnly: true });
+        }
         setBusy(false);
         return;
       }
@@ -235,11 +240,19 @@ export function FlightForm({
       <Panel strong>
         <div className="flex items-start gap-3">
           <Sparkles className="mt-0.5 h-5 w-5 text-cyan-400" />
-          <div>
+          <div className="w-full">
             <h2 className="text-xl font-semibold tracking-tight text-ink-0">
               Flight created
             </h2>
-            <p className="mt-1 text-sm text-ink-2">
+            {created.localOnly && (
+              <div className="mt-2 rounded-lg border border-signal-amber/30 bg-signal-amber/10 p-3 text-sm text-signal-amber">
+                <strong>Local-only mode:</strong> Supabase is unavailable, so this
+                flight is stored in your browser only. It will survive page
+                refreshes on this device, but won&apos;t sync to other devices
+                until the database is fixed.
+              </div>
+            )}
+            <p className="mt-2 text-sm text-ink-2">
               Share this tracking ID with your client. Toggle &quot;Go live&quot; from
               the mission board to start broadcasting realtime position.
             </p>
