@@ -19,6 +19,7 @@ import { Panel, PanelHeader } from "@/components/ui/Panel";
 import { Badge } from "@/components/ui/Badge";
 import type { Cargo, FlightRecord, FlightStatus, Party, Waypoint } from "@/types";
 import { saveFlight } from "@/lib/hybrid-client";
+import { generateTrackingId } from "@/lib/tracking-id";
 
 interface FormState {
   flightNumber: string;
@@ -155,10 +156,41 @@ export function FlightForm({
     setBusy(true);
     setError(null);
     try {
-      // Send as ISO with explicit Z so server treats it as UTC.
+      const departureAtIso = new Date(state.departureAt + ":00Z").toISOString();
+      const nowIso = new Date().toISOString();
+
+      // Build a temporary local record FIRST so a refresh can never kill it.
+      // If the API succeeds we overwrite with the real server-generated ID.
+      const tempId = mode === "create" ? -(Date.now()) : (flightId ?? -(Date.now()));
+      const tempFlight: FlightRecord = {
+        id: tempId,
+        trackingId: generateTrackingId(),
+        flightNumber: state.flightNumber,
+        aircraft: state.aircraft,
+        originCode: state.originCode,
+        destinationCode: state.destinationCode,
+        waypoints: state.waypoints,
+        cruiseKmh: state.cruiseKmh,
+        departureAt: departureAtIso,
+        status: state.status,
+        isLive: state.isLive,
+        cargo: state.cargo,
+        shipper: state.shipper,
+        consignee: state.consignee,
+        notes: state.notes || undefined,
+        emergency: undefined,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      };
+
+      // Step A — Persist locally BEFORE touching the network
+      await saveFlight(tempFlight);
+      console.log("[FlightForm] Pre-API local backup done:", tempFlight.trackingId);
+
+      // Step B — Send to API / Supabase
       const payload = {
         ...state,
-        departureAt: new Date(state.departureAt + ":00Z").toISOString(),
+        departureAt: departureAtIso,
       };
       const res = await fetch(
         mode === "create" ? "/api/flights" : `/api/flights/${flightId}`,
@@ -176,13 +208,14 @@ export function FlightForm({
       if (!res.ok) {
         const msg = j.detail || j.error || `Save failed (${res.status})`;
         const dbg = j.debug ? `\n(Debug: ${j.debug})` : '';
-        setError(msg + dbg);
+        setError(msg + dbg + "\n(Flight was saved to localStorage — it will survive refreshes.)");
         setBusy(false);
         return;
       }
       if (j.flight) {
-        // Dual-write: immediately back up to localStorage so refresh can't kill it
+        // Overwrite the temporary local record with the real server one
         await saveFlight(j.flight);
+        console.log("[FlightForm] Server flight synced to localStorage:", j.flight.trackingId);
       }
       if (mode === "create" && j.flight) {
         setCreated({ id: j.flight.id, trackingId: j.flight.trackingId });
@@ -191,7 +224,7 @@ export function FlightForm({
         router.refresh();
       }
     } catch {
-      setError("Network error");
+      setError("Network error — check your connection.");
     } finally {
       setBusy(false);
     }
