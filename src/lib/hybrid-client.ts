@@ -284,7 +284,7 @@ export async function declareEmergencyHybrid(
   const client = getClient();
   if (client) {
     try {
-      await client
+      await (client as any)
         .from("flights")
         .update({
           status: "emergency_stop",
@@ -321,7 +321,7 @@ export async function clearEmergencyHybrid(
   const client = getClient();
   if (client) {
     try {
-      await client
+      await (client as any)
         .from("flights")
         .update({
           status: resumeStatus,
