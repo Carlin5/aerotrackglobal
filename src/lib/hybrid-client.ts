@@ -338,7 +338,64 @@ export async function clearEmergencyHybrid(
 }
 
 /**
- * 5. DELETE (local + remote)
+ * 5. SYNC local-only flights to Supabase
+ * Uploads all localStorage flights with negative IDs to the database
+ * Returns the number of flights synced
+ */
+export async function syncLocalFlightsToSupabase(): Promise<number> {
+  const client = getClient();
+  if (!client) return 0;
+
+  const localFlights = getLocalList().filter((f) => f.id < 0);
+  if (localFlights.length === 0) return 0;
+
+  let synced = 0;
+  for (const flight of localFlights) {
+    try {
+      // Prepare payload for the API
+      const payload = {
+        trackingId: flight.trackingId,
+        flightNumber: flight.flightNumber,
+        aircraft: flight.aircraft,
+        originCode: flight.originCode,
+        destinationCode: flight.destinationCode,
+        waypoints: flight.waypoints,
+        cruiseKmh: flight.cruiseKmh,
+        departureAt: flight.departureAt,
+        status: flight.status,
+        isLive: flight.isLive,
+        cargo: flight.cargo,
+        shipper: flight.shipper,
+        consignee: flight.consignee,
+        notes: flight.notes,
+      };
+
+      const res = await fetch("/api/flights", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        const j = await res.json();
+        if (j.flight) {
+          // Remove the local-only version and save the server version
+          deleteFlightHybrid(flight.id);
+          saveFlight(j.flight);
+          synced++;
+          console.log("[sync] Synced local flight to Supabase:", flight.trackingId);
+        }
+      }
+    } catch (err) {
+      console.warn("[sync] Failed to sync flight:", flight.trackingId, err);
+    }
+  }
+
+  return synced;
+}
+
+/**
+ * 6. DELETE (local + remote)
  */
 export async function deleteFlightHybrid(id: number): Promise<void> {
   // Remove from localStorage immediately

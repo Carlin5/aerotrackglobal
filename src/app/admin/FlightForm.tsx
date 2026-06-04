@@ -183,11 +183,7 @@ export function FlightForm({
         updatedAt: nowIso,
       };
 
-      // Step A — Persist locally BEFORE touching the network
-      await saveFlight(tempFlight);
-      console.log("[FlightForm] Pre-API local backup done:", tempFlight.trackingId);
-
-      // Step B — Send to API / Supabase (skip for local-only edits)
+      // Step A — Send to API / Supabase FIRST (skip for local-only edits)
       const isLocalOnlyEdit = mode === "edit" && (flightId ?? 0) < 0;
 
       if (!isLocalOnlyEdit) {
@@ -211,9 +207,10 @@ export function FlightForm({
         if (!res.ok) {
           const msg = j.detail || j.error || `Save failed (${res.status})`;
           const dbg = j.debug ? `\n(Debug: ${j.debug})` : '';
-          setError(msg + dbg + "\n(Flight was saved to localStorage — it will survive refreshes.)");
-          // Even though Supabase failed, the flight IS in localStorage.
-          // Show the success screen so the user gets their tracking ID.
+          setError(msg + dbg + "\n(Database save failed. Flight saved to localStorage as fallback — it will only work on this device.)");
+          // Fallback: save to localStorage so the flight survives refreshes
+          await saveFlight(tempFlight);
+          console.log("[FlightForm] Fallback to localStorage:", tempFlight.trackingId);
           if (mode === "create") {
             setCreated({ id: tempFlight.id, trackingId: tempFlight.trackingId, localOnly: true });
           }
@@ -221,7 +218,7 @@ export function FlightForm({
           return;
         }
         if (j.flight) {
-          // Overwrite the temporary local record with the real server one
+          // Save the server flight to localStorage for offline access
           await saveFlight(j.flight);
           console.log("[FlightForm] Server flight synced to localStorage:", j.flight.trackingId);
         }
@@ -231,7 +228,7 @@ export function FlightForm({
           return;
         }
       } else {
-        // Local-only edit: just update localStorage directly
+        // Local-only edit: update localStorage directly
         await saveFlight(tempFlight);
         console.log("[FlightForm] Local-only flight updated:", tempFlight.trackingId);
       }

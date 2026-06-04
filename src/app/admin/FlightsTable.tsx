@@ -21,7 +21,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Input } from "@/components/ui/Input";
 import { formatDistanceKm, formatDuration, cn } from "@/lib/utils";
 import { buildRoutePlan } from "@/lib/simulation";
-import { listFlightsHybrid, deleteFlightHybrid } from "@/lib/hybrid-client";
+import { listFlightsHybrid, deleteFlightHybrid, syncLocalFlightsToSupabase } from "@/lib/hybrid-client";
 import type { FlightRecord } from "@/types";
 import { EmergencyDialog } from "./EmergencyDialog";
 import { DeleteFlightDialog } from "./DeleteFlightDialog";
@@ -250,6 +250,29 @@ export function FlightsTable({ flights }: { flights: Row[] }) {
         busy: false,
         error: "Network error — please retry.",
       }));
+    }
+  }
+
+  async function syncFlight(row: Row) {
+    setPendingId(row.id);
+    try {
+      const synced = await syncLocalFlightsToSupabase();
+      if (synced > 0) {
+        setBanner({
+          tone: "success",
+          text: `Flight ${row.flightNumber} synced to database — now accessible from any device.`,
+        });
+        startTransition(() => router.refresh());
+      } else {
+        setBanner({
+          tone: "error",
+          text: "Sync failed — database may be unavailable.",
+        });
+      }
+    } catch {
+      setBanner({ tone: "error", text: "Network error — please retry." });
+    } finally {
+      setPendingId(null);
     }
   }
 
@@ -492,6 +515,11 @@ export function FlightsTable({ flights }: { flights: Row[] }) {
                           Live
                         </Badge>
                       ) : null}
+                      {f.id < 0 ? (
+                        <Badge tone="amber">
+                          Local only
+                        </Badge>
+                      ) : null}
                     </div>
                   </td>
                   <td className="py-3 pr-3 text-right">
@@ -587,6 +615,17 @@ export function FlightsTable({ flights }: { flights: Row[] }) {
                           <Pencil className="h-3.5 w-3.5" /> Edit
                         </Button>
                       </Link>
+                      {f.id < 0 ? (
+                        <Button
+                          variant="accent"
+                          size="sm"
+                          disabled={pendingId === f.id}
+                          onClick={() => syncFlight(f)}
+                          title="Sync to database so it works from any device"
+                        >
+                          <Check className="h-3.5 w-3.5" /> Sync
+                        </Button>
+                      ) : null}
                       <Button
                         variant="ghost"
                         size="sm"
