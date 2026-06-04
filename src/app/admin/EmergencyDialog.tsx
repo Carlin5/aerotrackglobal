@@ -5,6 +5,10 @@ import { AlertTriangle, X, ShieldAlert, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Field, Input, Textarea } from "@/components/ui/Input";
 import { motion, AnimatePresence } from "framer-motion";
+import {
+  declareEmergencyHybrid,
+  clearEmergencyHybrid,
+} from "@/lib/hybrid-client";
 
 interface FlightLite {
   id: number;
@@ -68,45 +72,57 @@ export function EmergencyDialog({
     setBusy(true);
     setError(null);
     try {
+      const isLocalOnly = flight.id < 0;
+
       if (mode === "declare") {
         if (reason.trim().length < 3) {
           setError("Please provide a reason (at least 3 characters).");
           setBusy(false);
           return;
         }
-        const res = await fetch(`/api/flights/${flight.id}/emergency`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            reason: reason.trim(),
-            resumeEta: resumeEta.trim()
-              ? new Date(resumeEta + ":00Z").toISOString()
-              : undefined,
-          }),
-        });
-        if (!res.ok) {
-          const j = (await res.json().catch(() => ({}))) as { error?: string };
-          setError(j.error || `Request failed (${res.status})`);
-          setBusy(false);
-          return;
+        const resumeEtaIso = resumeEta.trim()
+          ? new Date(resumeEta + ":00Z").toISOString()
+          : undefined;
+
+        if (isLocalOnly) {
+          await declareEmergencyHybrid(flight.id, reason.trim(), resumeEtaIso);
+        } else {
+          const res = await fetch(`/api/flights/${flight.id}/emergency`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              reason: reason.trim(),
+              resumeEta: resumeEtaIso,
+            }),
+          });
+          if (!res.ok) {
+            const j = (await res.json().catch(() => ({}))) as { error?: string };
+            setError(j.error || `Request failed (${res.status})`);
+            setBusy(false);
+            return;
+          }
         }
       } else {
-        const res = await fetch(`/api/flights/${flight.id}/emergency`, {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ resumeStatus: "in_flight" }),
-        });
-        if (!res.ok) {
-          const j = (await res.json().catch(() => ({}))) as { error?: string };
-          setError(j.error || `Request failed (${res.status})`);
-          setBusy(false);
-          return;
+        if (isLocalOnly) {
+          await clearEmergencyHybrid(flight.id, "in_flight");
+        } else {
+          const res = await fetch(`/api/flights/${flight.id}/emergency`, {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ resumeStatus: "in_flight" }),
+          });
+          if (!res.ok) {
+            const j = (await res.json().catch(() => ({}))) as { error?: string };
+            setError(j.error || `Request failed (${res.status})`);
+            setBusy(false);
+            return;
+          }
         }
       }
       onDone();
       onClose();
-    } catch {
-      setError("Network error.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Network error.");
     } finally {
       setBusy(false);
     }

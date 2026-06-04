@@ -1,7 +1,8 @@
 "use client";
 
 import { createClient } from "@supabase/supabase-js";
-import type { FlightRecord } from "@/types";
+import { buildRoutePlan, computeLivePosition } from "@/lib/simulation";
+import type { EmergencySnapshot, FlightRecord, FlightStatus } from "@/types";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
@@ -199,6 +200,7 @@ export async function loadFlightByTrackingId(
  * 3. FAILSAFE LIST
  *    Merge Supabase results with localStorage flights.
  *    If Supabase is down, return pure local list.
+ *    Local-only flights (negative IDs or not in remote) are preserved.
  */
 export async function listFlightsHybrid(): Promise<FlightRecord[]> {
   const client = getClient();
@@ -213,22 +215,130 @@ export async function listFlightsHybrid(): Promise<FlightRecord[]> {
 
       if (!error && data) {
         remote = data.map(rowToFlight);
-        // Sync every successful remote read into local cache
-        setLocalList(remote);
       }
     } catch (err) {
       console.warn("[hybrid] Supabase list failed, using local cache:", err);
     }
   }
 
-  // If remote succeeded, we already cached it → return it.
+  if (remote.length > 0) {
+    // Merge remote flights with local-only flights so they don't get wiped
+    const local = getLocalList();
+    const remoteIds = new Set(remote.map((f) => f.id));
+    const localOnly = local.filter((f) => !remoteIds.has(f.id));
+    const merged = [...remote, ...localOnly];
+    setLocalList(merged);
+    return merged;
+  }
+
   // If remote failed, return the last-known local list.
-  if (remote.length > 0) return remote;
   return getLocalList();
 }
 
 /**
- * 4. DELETE (local + remote)
+ * 4. EMERGENCY declare/clear (local + remote)
+ */
+export async function declareEmergencyHybrid(
+  id: number,
+  reason: string,
+  resumeEta?: string,
+): Promise<FlightRecord> {
+  const flight = getLocalList().find((f) => f.id === id);
+  if (!flight) throw new Error("Flight not found in localStorage");
+
+  const plan = buildRoutePlan(flight);
+  const pos = computeLivePosition(
+    {
+      ...flight,
+      isLive: true,
+      status: flight.status === "scheduled" ? "in_flight" : flight.status,
+    },
+    plan,
+    new Date(),
+  );
+
+  const snapshot: EmergencySnapshot = {
+    declaredAt: new Date().toISOString(),
+    reason: reason.trim().slice(0, 500),
+    lat: pos.lat,
+    lng: pos.lng,
+    bearing: pos.bearing,
+    altitudeM: pos.altitudeM,
+    groundSpeedKmh: pos.groundSpeedKmh,
+    legIndex: pos.currentLegIndex,
+    segmentProgress: pos.segmentProgress,
+    resumeEta: resumeEta?.trim() ? resumeEta : undefined,
+  };
+
+  const updated: FlightRecord = {
+    ...flight,
+    status: "emergency_stop",
+    isLive: true,
+    emergency: snapshot,
+    updatedAt: new Date().toISOString(),
+  };
+
+  saveLocalFlight(updated);
+
+  // Also attempt remote update
+  const client = getClient();
+  if (client) {
+    try {
+      await client
+        .from("flights")
+        .update({
+          status: "emergency_stop",
+          is_live: true,
+          emergency_json: JSON.stringify(snapshot),
+          updated_at: updated.updatedAt,
+        })
+        .eq("id", id);
+    } catch {
+      /* ignore remote failures for local-only flights */
+    }
+  }
+
+  return updated;
+}
+
+export async function clearEmergencyHybrid(
+  id: number,
+  resumeStatus: FlightStatus = "in_flight",
+): Promise<FlightRecord> {
+  const flight = getLocalList().find((f) => f.id === id);
+  if (!flight) throw new Error("Flight not found in localStorage");
+
+  const updated: FlightRecord = {
+    ...flight,
+    status: resumeStatus,
+    emergency: undefined,
+    updatedAt: new Date().toISOString(),
+  };
+
+  saveLocalFlight(updated);
+
+  // Also attempt remote update
+  const client = getClient();
+  if (client) {
+    try {
+      await client
+        .from("flights")
+        .update({
+          status: resumeStatus,
+          emergency_json: null,
+          updated_at: updated.updatedAt,
+        })
+        .eq("id", id);
+    } catch {
+      /* ignore remote failures */
+    }
+  }
+
+  return updated;
+}
+
+/**
+ * 5. DELETE (local + remote)
  */
 export async function deleteFlightHybrid(id: number): Promise<void> {
   // Remove from localStorage immediately

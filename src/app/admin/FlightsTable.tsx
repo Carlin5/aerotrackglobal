@@ -21,7 +21,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Input } from "@/components/ui/Input";
 import { formatDistanceKm, formatDuration, cn } from "@/lib/utils";
 import { buildRoutePlan } from "@/lib/simulation";
-import { listFlightsHybrid } from "@/lib/hybrid-client";
+import { listFlightsHybrid, deleteFlightHybrid } from "@/lib/hybrid-client";
 import type { FlightRecord } from "@/types";
 import { EmergencyDialog } from "./EmergencyDialog";
 import { DeleteFlightDialog } from "./DeleteFlightDialog";
@@ -223,15 +223,20 @@ export function FlightsTable({ flights }: { flights: Row[] }) {
     if (!row) return;
     setDeleteDialog((d) => ({ ...d, busy: true, error: null }));
     try {
-      const res = await fetch(`/api/flights/${row.id}`, { method: "DELETE" });
-      if (!res.ok) {
-        const j = (await res.json().catch(() => ({}))) as { error?: string };
-        setDeleteDialog((d) => ({
-          ...d,
-          busy: false,
-          error: j.error || `Delete failed (${res.status}).`,
-        }));
-        return;
+      if (row.id < 0) {
+        // Local-only flight: delete from localStorage directly
+        await deleteFlightHybrid(row.id);
+      } else {
+        const res = await fetch(`/api/flights/${row.id}`, { method: "DELETE" });
+        if (!res.ok) {
+          const j = (await res.json().catch(() => ({}))) as { error?: string };
+          setDeleteDialog((d) => ({
+            ...d,
+            busy: false,
+            error: j.error || `Delete failed (${res.status}).`,
+          }));
+          return;
+        }
       }
       setBanner({
         tone: "success",

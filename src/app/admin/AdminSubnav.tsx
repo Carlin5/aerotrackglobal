@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ShieldCheck, Plus, LogOut, LayoutGrid } from "lucide-react";
+import { ShieldCheck, Plus, LogOut, LayoutGrid, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 
@@ -19,6 +19,7 @@ export function AdminSubnav({ username }: { username: string }) {
   const tabs = [
     { href: "/admin", label: "Mission board", icon: LayoutGrid, exact: true },
     { href: "/admin/flights/new", label: "Compose flight", icon: Plus, exact: false },
+    { href: "/admin/emergency", label: "Emergency", icon: AlertTriangle, exact: true },
   ];
 
   return (
