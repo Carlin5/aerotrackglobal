@@ -9,6 +9,12 @@ import {
 } from '@/lib/simulation';
 import { normalizeTrackingId } from '@/lib/tracking-id';
 
+// Never cache this endpoint — flight status (incl. emergency holds) must be
+// served fresh from Supabase on every request.
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+export const fetchCache = 'force-no-store';
+
 // Public endpoint — returns redacted info safe for clients.
 export async function GET(
   _req: Request,
@@ -106,6 +112,10 @@ export async function GET(
       position,
       events: events.map((e) => ({ ...e, at: e.at.toISOString() })),
       serverTime: new Date().toISOString(),
+    }, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+      },
     });
   } catch (err) {
     console.error('[api/track/[trackingId]] GET failed:', err);
